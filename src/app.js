@@ -27,8 +27,12 @@ app.get('/', (req, res) => {
     message: 'Netflop API is running.',
     docs: {
       health: '/api/health',
+      movies: 'GET /api/movies',
+      genres: 'GET /api/catalog/genres',
+      countries: 'GET /api/catalog/countries',
       login: 'POST /api/auth/login',
       me: 'GET /api/auth/me',
+      favorites: 'GET /api/me/favorites',
       adminUsers: 'GET /api/admin/users'
     }
   });

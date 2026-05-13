@@ -143,6 +143,136 @@ Content-Type: application/json
 }
 ```
 
+### Movies
+
+```http
+GET /api/movies?search=&genreId=&countryId=&year=&type=&status=&sort=latest&page=1&limit=20
+```
+
+Supported `sort`: `latest`, `popular`, `rating`, `year`.
+
+```http
+GET /api/movies/:id
+```
+
+```http
+GET /api/movies/:id/episodes
+```
+
+```http
+GET /api/movies/:id/comments
+```
+
+Requires login:
+
+```http
+POST /api/movies/:id/favorite
+Authorization: Bearer JWT_TOKEN
+```
+
+```http
+DELETE /api/movies/:id/favorite
+Authorization: Bearer JWT_TOKEN
+```
+
+```http
+POST /api/movies/:id/history
+Authorization: Bearer JWT_TOKEN
+Content-Type: application/json
+
+{
+  "episodeId": 1,
+  "watchedSeconds": 120
+}
+```
+
+```http
+POST /api/movies/:id/rating
+Authorization: Bearer JWT_TOKEN
+Content-Type: application/json
+
+{
+  "score": 8,
+  "comment": "Good movie"
+}
+```
+
+```http
+POST /api/movies/:id/comments
+Authorization: Bearer JWT_TOKEN
+Content-Type: application/json
+
+{
+  "content": "Nice episode",
+  "parentId": null
+}
+```
+
+### Catalog
+
+```http
+GET /api/catalog/genres
+GET /api/catalog/countries
+```
+
+### Current user's movie data
+
+Requires login:
+
+```http
+GET /api/me/favorites
+Authorization: Bearer JWT_TOKEN
+```
+
+```http
+GET /api/me/history
+Authorization: Bearer JWT_TOKEN
+```
+
+### Admin movie and catalog management
+
+Requires `tai_khoan.vai_tro = 'admin'`.
+
+```http
+GET /api/admin/movies
+POST /api/admin/movies
+GET /api/admin/movies/:id
+PATCH /api/admin/movies/:id
+DELETE /api/admin/movies/:id
+```
+
+Create movie body:
+
+```json
+{
+  "name": "Movie name",
+  "title": "Movie title",
+  "description": "Short description",
+  "content": "Long content",
+  "duration": 120,
+  "year": 2026,
+  "status": "Đang chiếu",
+  "type": "Lẻ",
+  "poster": "https://example.com/poster.jpg",
+  "banner": "https://example.com/banner.jpg",
+  "link": "https://example.com/watch",
+  "countryId": 1,
+  "hlsMasterUrl": "https://example.com/master.m3u8",
+  "isPublished": true,
+  "genreIds": [1, 2]
+}
+```
+
+```http
+POST /api/admin/genres
+PATCH /api/admin/genres/:id
+DELETE /api/admin/genres/:id
+
+POST /api/admin/countries
+PATCH /api/admin/countries/:id
+DELETE /api/admin/countries/:id
+```
+
 ## Create first admin
 
 If you already have an account in `tai_khoan`, promote it in phpMyAdmin:
