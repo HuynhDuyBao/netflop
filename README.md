@@ -10,10 +10,12 @@ NETFLOP/
     src/
       config/
       controllers/
+      integrations/
       middlewares/
       routes/
       services/
       utils/
+      validators/
       app.js
     .env
     .env.example
@@ -38,6 +40,13 @@ Run the backend in development:
 
 ```powershell
 npm run dev
+```
+
+Create or seed the database:
+
+```powershell
+npm run db:migrate
+npm run db:seed
 ```
 
 Run the backend in production mode:

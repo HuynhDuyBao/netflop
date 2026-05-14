@@ -26,5 +26,17 @@ module.exports = {
   jwt: {
     secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+  },
+  rateLimit: {
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+    max: Number(process.env.RATE_LIMIT_MAX || 300)
+  },
+  aws: {
+    region: process.env.AWS_REGION || '',
+    inputBucket: process.env.AWS_INPUT_BUCKET || '',
+    outputBucket: process.env.AWS_OUTPUT_BUCKET || '',
+    cloudFrontDomain: process.env.AWS_CLOUDFRONT_DOMAIN || '',
+    mediaConvertEndpoint: process.env.AWS_MEDIACONVERT_ENDPOINT || '',
+    mediaConvertRoleArn: process.env.AWS_MEDIACONVERT_ROLE_ARN || ''
   }
 };

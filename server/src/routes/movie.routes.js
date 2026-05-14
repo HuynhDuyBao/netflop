@@ -1,25 +1,10 @@
 const express = require('express');
-const Joi = require('joi');
 const movieController = require('../controllers/movie.controller');
 const validate = require('../middlewares/validate.middleware');
 const { authenticate, optionalAuthenticate } = require('../middlewares/auth.middleware');
+const { commentSchema, historySchema, ratingSchema } = require('../validators/movie.validator');
 
 const router = express.Router();
-
-const historySchema = Joi.object({
-  episodeId: Joi.number().integer().positive().allow(null),
-  watchedSeconds: Joi.number().min(0).default(0)
-});
-
-const ratingSchema = Joi.object({
-  score: Joi.number().integer().min(1).max(10).required(),
-  comment: Joi.string().trim().max(1000).allow('', null)
-});
-
-const commentSchema = Joi.object({
-  content: Joi.string().trim().min(1).max(2000).required(),
-  parentId: Joi.number().integer().positive().allow(null)
-});
 
 router.get('/', movieController.listMovies);
 router.get('/:id', optionalAuthenticate, movieController.getMovie);

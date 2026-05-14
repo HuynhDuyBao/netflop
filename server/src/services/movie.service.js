@@ -1,4 +1,6 @@
 const { pool } = require('../config/database');
+const env = require('../config/env');
+const { createHlsTranscodeJob, createPresignedUploadUrl, getTranscodeJob } = require('../integrations/aws');
 const HttpError = require('../utils/httpError');
 
 const movieFields = `
@@ -520,8 +522,10 @@ async function listAdminEpisodes({ movieId = null, page = 1, limit = 50 }) {
     `
       SELECT
         tp.MaTap, tp.MaPhim, tp.TenTap, tp.Link, tp.original_file, tp.hls_url,
-        tp.cloudfront_url, tp.status, tp.duration, tp.upload_status,
-        tp.error_message, tp.file_size_bytes, tp.created_at, tp.updated_at,
+        tp.cloudfront_url, tp.status, tp.duration, tp.s3_input_bucket, tp.s3_input_key,
+        tp.s3_output_bucket, tp.s3_output_prefix, tp.hls_master_key, tp.mediaconvert_job_id,
+        tp.mediaconvert_role_arn, tp.aws_region, tp.upload_status, tp.error_message,
+        tp.file_size_bytes, tp.created_at, tp.updated_at,
         p.TenPhim
       FROM tapphim tp
       LEFT JOIN phim p ON p.MaPhim = tp.MaPhim
@@ -557,8 +561,10 @@ async function getAdminEpisodeById(id) {
     `
       SELECT
         tp.MaTap, tp.MaPhim, tp.TenTap, tp.Link, tp.original_file, tp.hls_url,
-        tp.cloudfront_url, tp.status, tp.duration, tp.upload_status,
-        tp.error_message, tp.file_size_bytes, tp.created_at, tp.updated_at,
+        tp.cloudfront_url, tp.status, tp.duration, tp.s3_input_bucket, tp.s3_input_key,
+        tp.s3_output_bucket, tp.s3_output_prefix, tp.hls_master_key, tp.mediaconvert_job_id,
+        tp.mediaconvert_role_arn, tp.aws_region, tp.upload_status, tp.error_message,
+        tp.file_size_bytes, tp.created_at, tp.updated_at,
         p.TenPhim
       FROM tapphim tp
       LEFT JOIN phim p ON p.MaPhim = tp.MaPhim
@@ -603,6 +609,249 @@ async function createEpisode(payload) {
   );
 
   return getAdminEpisodeById(result.insertId);
+}
+
+function sanitizeFileName(fileName) {
+  return String(fileName || 'video.mp4')
+    .trim()
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 160) || 'video.mp4';
+}
+
+function getCloudFrontUrl(key) {
+  if (!env.aws.cloudFrontDomain) {
+    return null;
+  }
+
+  const domain = env.aws.cloudFrontDomain.replace(/\/+$/, '');
+  return `${domain}/${key.replace(/^\/+/, '')}`;
+}
+
+async function createEpisodeUpload(payload) {
+  await getAdminMovieById(payload.movieId);
+
+  const fileName = sanitizeFileName(payload.fileName);
+  const inputKey = `movies/${payload.movieId}/uploads/${Date.now()}-${fileName}`;
+  const uploadUrl = await createPresignedUploadUrl({
+    key: inputKey,
+    contentType: payload.contentType || 'video/mp4'
+  });
+
+  const [result] = await pool.execute(
+    `
+      INSERT INTO tapphim (
+        MaPhim, TenTap, original_file, s3_input_bucket, s3_input_key,
+        s3_output_bucket, status, duration, upload_status, file_size_bytes, aws_region
+      )
+      VALUES (
+        :movieId, :name, :originalFile, :inputBucket, :inputKey,
+        :outputBucket, 'uploading', :duration, 'uploading', :fileSizeBytes, :region
+      )
+    `,
+    {
+      movieId: payload.movieId,
+      name: payload.name || null,
+      originalFile: fileName,
+      inputBucket: env.aws.inputBucket || null,
+      inputKey,
+      outputBucket: env.aws.outputBucket || null,
+      duration: payload.duration || null,
+      fileSizeBytes: payload.fileSizeBytes || null,
+      region: env.aws.region || null
+    }
+  );
+
+  await pool.execute(
+    `
+      UPDATE phim
+      SET aws_status = 'pending_upload', aws_error_message = NULL
+      WHERE MaPhim = :movieId
+    `,
+    { movieId: payload.movieId }
+  );
+
+  return {
+    episode: await getAdminEpisodeById(result.insertId),
+    upload: {
+      url: uploadUrl,
+      method: 'PUT',
+      key: inputKey,
+      bucket: env.aws.inputBucket,
+      contentType: payload.contentType || 'video/mp4',
+      expiresIn: 900
+    }
+  };
+}
+
+async function markEpisodeUploaded(id, payload = {}) {
+  const episode = await getAdminEpisodeById(id);
+
+  await pool.execute(
+    `
+      UPDATE tapphim
+      SET upload_status = 'uploaded',
+          status = 'uploaded',
+          file_size_bytes = COALESCE(:fileSizeBytes, file_size_bytes),
+          error_message = NULL
+      WHERE MaTap = :id
+    `,
+    {
+      id,
+      fileSizeBytes: payload.fileSizeBytes || null
+    }
+  );
+
+  await pool.execute(
+    `
+      UPDATE phim
+      SET aws_status = 'uploaded', aws_error_message = NULL
+      WHERE MaPhim = :movieId
+    `,
+    { movieId: episode.MaPhim }
+  );
+
+  return getAdminEpisodeById(id);
+}
+
+async function submitEpisodeTranscode(id, { publishMovieWhenReady = false } = {}) {
+  const episode = await getAdminEpisodeById(id);
+
+  if (!episode.s3_input_key) {
+    throw new HttpError(400, 'Tap phim chua co S3 input key.');
+  }
+
+  const outputPrefix = episode.s3_output_prefix || `movies/${episode.MaPhim}/episodes/${id}/`;
+  const hlsMasterKey = `${outputPrefix.replace(/\/?$/, '/')}_720p.m3u8`;
+  const cloudfrontUrl = getCloudFrontUrl(hlsMasterKey);
+  const job = await createHlsTranscodeJob({
+    inputKey: episode.s3_input_key,
+    outputPrefix
+  });
+
+  await pool.execute(
+    `
+      UPDATE tapphim
+      SET upload_status = 'processing',
+          status = 'processing',
+          s3_output_bucket = :outputBucket,
+          s3_output_prefix = :outputPrefix,
+          hls_master_key = :hlsMasterKey,
+          cloudfront_url = :cloudfrontUrl,
+          hls_url = :cloudfrontUrl,
+          mediaconvert_job_id = :jobId,
+          mediaconvert_role_arn = :roleArn,
+          aws_region = :region,
+          error_message = NULL
+      WHERE MaTap = :id
+    `,
+    {
+      id,
+      outputBucket: env.aws.outputBucket || null,
+      outputPrefix,
+      hlsMasterKey,
+      cloudfrontUrl,
+      jobId: job.Id,
+      roleArn: env.aws.mediaConvertRoleArn || null,
+      region: env.aws.region || null
+    }
+  );
+
+  await pool.execute(
+    `
+      UPDATE phim
+      SET aws_status = 'processing',
+          s3_output_prefix = COALESCE(s3_output_prefix, :movieOutputPrefix),
+          cloudfront_base_url = COALESCE(cloudfront_base_url, :cloudFrontDomain),
+          aws_error_message = NULL
+      WHERE MaPhim = :movieId
+    `,
+    {
+      movieId: episode.MaPhim,
+      movieOutputPrefix: `movies/${episode.MaPhim}/`,
+      cloudFrontDomain: env.aws.cloudFrontDomain || null
+    }
+  );
+
+  const updatedEpisode = await getAdminEpisodeById(id);
+
+  return {
+    episode: updatedEpisode,
+    job,
+    publishMovieWhenReady
+  };
+}
+
+async function syncEpisodeTranscodeStatus(id, { publishMovieWhenReady = false } = {}) {
+  const episode = await getAdminEpisodeById(id);
+
+  if (!episode.mediaconvert_job_id) {
+    throw new HttpError(400, 'Tap phim chua co MediaConvert job id.');
+  }
+
+  const job = await getTranscodeJob(episode.mediaconvert_job_id);
+  const status = job.Status;
+
+  if (status === 'COMPLETE') {
+    await pool.execute(
+      `
+        UPDATE tapphim
+        SET upload_status = 'ready',
+            status = 'ready',
+            Link = COALESCE(cloudfront_url, hls_url),
+            error_message = NULL
+        WHERE MaTap = :id
+      `,
+      { id }
+    );
+
+    await pool.execute(
+      `
+        UPDATE phim
+        SET aws_status = 'ready',
+            hls_master_url = COALESCE(hls_master_url, :cloudfrontUrl),
+            is_published = CASE WHEN :publishMovieWhenReady THEN 1 ELSE is_published END,
+            published_at = CASE WHEN :publishMovieWhenReady THEN COALESCE(published_at, NOW()) ELSE published_at END,
+            aws_error_message = NULL
+        WHERE MaPhim = :movieId
+      `,
+      {
+        movieId: episode.MaPhim,
+        cloudfrontUrl: episode.cloudfront_url || null,
+        publishMovieWhenReady: Boolean(publishMovieWhenReady)
+      }
+    );
+  } else if (status === 'ERROR' || status === 'CANCELED') {
+    const message = job.ErrorMessage || `MediaConvert job ${status}`;
+
+    await pool.execute(
+      `
+        UPDATE tapphim
+        SET upload_status = 'failed',
+            status = 'failed',
+            error_message = :message
+        WHERE MaTap = :id
+      `,
+      { id, message }
+    );
+
+    await pool.execute(
+      `
+        UPDATE phim
+        SET aws_status = 'failed', aws_error_message = :message
+        WHERE MaPhim = :movieId
+      `,
+      { movieId: episode.MaPhim, message }
+    );
+  }
+
+  return {
+    episode: await getAdminEpisodeById(id),
+    job
+  };
 }
 
 async function updateEpisode(id, payload) {
@@ -928,6 +1177,7 @@ module.exports = {
   addFavorite,
   createComment,
   createEpisode,
+  createEpisodeUpload,
   createMovie,
   deleteEpisode,
   deleteMovie,
@@ -941,9 +1191,12 @@ module.exports = {
   listFavorites,
   listHistory,
   listMovies,
+  markEpisodeUploaded,
   rateMovie,
   removeFavorite,
   saveHistory,
+  submitEpisodeTranscode,
+  syncEpisodeTranscodeStatus,
   updateEpisode,
   updateMovie
 };

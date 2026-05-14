@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const env = require('./config/env');
 const apiRoutes = require('./routes');
 const { errorHandler, notFound } = require('./middlewares/error.middleware');
+const { apiLimiter } = require('./middlewares/security.middleware');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use(helmet({
   }
 }));
 app.use(cors(corsOptions));
+app.use('/api', apiLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 

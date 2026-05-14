@@ -5,15 +5,21 @@
   "description": "Backend API for Netflop using Node.js, Express, MySQL and JWT.",
   "main": "src/server.js",
   "scripts": {
+    "db:migrate": "node scripts/run-sql.js database/migrations",
+    "db:seed": "node scripts/run-sql.js database/seeds",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js"
   },
   "dependencies": {
+    "@aws-sdk/client-mediaconvert": "^3.1046.0",
+    "@aws-sdk/client-s3": "^3.1046.0",
+    "@aws-sdk/s3-request-presigner": "^3.1046.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "debug": "^4.4.3",
     "dotenv": "^16.4.7",
     "express": "^4.22.2",
+    "express-rate-limit": "^8.5.1",
     "helmet": "^8.0.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",

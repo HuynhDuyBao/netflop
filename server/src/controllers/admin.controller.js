@@ -263,6 +263,62 @@ async function deleteEpisode(req, res, next) {
   }
 }
 
+async function createEpisodeUpload(req, res, next) {
+  try {
+    const result = await movieService.createEpisodeUpload(req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Da tao URL upload tap phim.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function markEpisodeUploaded(req, res, next) {
+  try {
+    const episode = await movieService.markEpisodeUploaded(Number(req.params.id), req.body);
+
+    res.json({
+      success: true,
+      message: 'Da danh dau tap phim da upload.',
+      data: episode
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function submitEpisodeTranscode(req, res, next) {
+  try {
+    const result = await movieService.submitEpisodeTranscode(Number(req.params.id), req.body);
+
+    res.status(202).json({
+      success: true,
+      message: 'Da gui job MediaConvert.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function syncEpisodeTranscodeStatus(req, res, next) {
+  try {
+    const result = await movieService.syncEpisodeTranscodeStatus(Number(req.params.id), req.body);
+
+    res.json({
+      success: true,
+      message: 'Da dong bo trang thai MediaConvert.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getMovie(req, res, next) {
   try {
     const movie = await movieService.getAdminMovieById(Number(req.params.id));
@@ -404,6 +460,7 @@ module.exports = {
   createCountry,
   createDirector,
   createEpisode,
+  createEpisodeUpload,
   createGenre,
   createMovie,
   deleteActor,
@@ -419,7 +476,10 @@ module.exports = {
   listEpisodes,
   listMovies,
   listUsers,
+  markEpisodeUploaded,
   stats,
+  submitEpisodeTranscode,
+  syncEpisodeTranscodeStatus,
   updateActor,
   updateEpisode,
   updateCountry,
