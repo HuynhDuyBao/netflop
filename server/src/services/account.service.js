@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const HttpError = require('../utils/httpError');
 
 const publicAccountFields = `
   id,
@@ -126,7 +127,7 @@ async function listAccounts({ page = 1, limit = 20, search = '' }) {
 }
 
 async function updateAccountRole(id, role) {
-  await pool.execute(
+  const [result] = await pool.execute(
     `
       UPDATE tai_khoan
       SET vai_tro = :role
@@ -135,11 +136,15 @@ async function updateAccountRole(id, role) {
     { id, role }
   );
 
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay nguoi dung.');
+  }
+
   return findById(id);
 }
 
 async function updateAccountStatus(id, status) {
-  await pool.execute(
+  const [result] = await pool.execute(
     `
       UPDATE tai_khoan
       SET trang_thai = :status
@@ -147,6 +152,10 @@ async function updateAccountStatus(id, status) {
     `,
     { id, status }
   );
+
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay nguoi dung.');
+  }
 
   return findById(id);
 }

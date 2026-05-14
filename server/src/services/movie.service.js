@@ -27,7 +27,7 @@ const movieFields = `
   qg.TenQuocGia
 `;
 
-const publicMovieWhere = '(p.is_published = 1 OR p.is_published IS NULL)';
+const publicMovieWhere = 'p.is_published = 1';
 
 function mapMovie(row) {
   if (!row) {
@@ -189,6 +189,30 @@ async function getMovieById(id, userId = null) {
     { id }
   );
 
+  const [actors] = await pool.execute(
+    `
+      SELECT dv.MaDienVien, dv.TenDienVien, dv.NgaySinh, dv.MaQuocGia, dv.TieuSu, dv.HinhAnh, qg.TenQuocGia
+      FROM dienvien dv
+      INNER JOIN phim_dienvien pdv ON pdv.MaDienVien = dv.MaDienVien
+      LEFT JOIN quocgia qg ON qg.MaQuocGia = dv.MaQuocGia
+      WHERE pdv.MaPhim = :id
+      ORDER BY dv.TenDienVien ASC
+    `,
+    { id }
+  );
+
+  const [directors] = await pool.execute(
+    `
+      SELECT dd.MaDaoDien, dd.TenDaoDien, dd.NgaySinh, dd.MaQuocGia, dd.TieuSu, dd.HinhAnh, qg.TenQuocGia
+      FROM daodien dd
+      INNER JOIN phim_daodien pdd ON pdd.MaDaoDien = dd.MaDaoDien
+      LEFT JOIN quocgia qg ON qg.MaQuocGia = dd.MaQuocGia
+      WHERE pdd.MaPhim = :id
+      ORDER BY dd.TenDaoDien ASC
+    `,
+    { id }
+  );
+
   let isFavorite = false;
 
   if (userId) {
@@ -207,6 +231,8 @@ async function getMovieById(id, userId = null) {
   return {
     ...movie,
     the_loai: genres,
+    dien_vien: actors,
+    dao_dien: directors,
     tap_phim: episodes,
     isFavorite
   };
@@ -241,9 +267,35 @@ async function getAdminMovieById(id) {
     { id }
   );
 
+  const [actors] = await pool.execute(
+    `
+      SELECT dv.MaDienVien, dv.TenDienVien, dv.NgaySinh, dv.MaQuocGia, dv.TieuSu, dv.HinhAnh, qg.TenQuocGia
+      FROM dienvien dv
+      INNER JOIN phim_dienvien pdv ON pdv.MaDienVien = dv.MaDienVien
+      LEFT JOIN quocgia qg ON qg.MaQuocGia = dv.MaQuocGia
+      WHERE pdv.MaPhim = :id
+      ORDER BY dv.TenDienVien ASC
+    `,
+    { id }
+  );
+
+  const [directors] = await pool.execute(
+    `
+      SELECT dd.MaDaoDien, dd.TenDaoDien, dd.NgaySinh, dd.MaQuocGia, dd.TieuSu, dd.HinhAnh, qg.TenQuocGia
+      FROM daodien dd
+      INNER JOIN phim_daodien pdd ON pdd.MaDaoDien = dd.MaDaoDien
+      LEFT JOIN quocgia qg ON qg.MaQuocGia = dd.MaQuocGia
+      WHERE pdd.MaPhim = :id
+      ORDER BY dd.TenDaoDien ASC
+    `,
+    { id }
+  );
+
   return {
     ...movie,
-    the_loai: genres
+    the_loai: genres,
+    dien_vien: actors,
+    dao_dien: directors
   };
 }
 
@@ -265,6 +317,28 @@ async function syncMovieGenres(connection, movieId, genreIds = []) {
         VALUES (:movieId, :genreId)
       `,
       { movieId, genreId }
+    );
+  }
+}
+
+async function syncMoviePeople(connection, movieId, table, idColumn, ids = []) {
+  await connection.execute(
+    `
+      DELETE FROM ${table}
+      WHERE MaPhim = :movieId
+    `,
+    { movieId }
+  );
+
+  const uniqueIds = [...new Set((ids || []).map(Number).filter(Boolean))];
+
+  for (const id of uniqueIds) {
+    await connection.execute(
+      `
+        INSERT INTO ${table} (MaPhim, ${idColumn})
+        VALUES (:movieId, :id)
+      `,
+      { movieId, id }
     );
   }
 }
@@ -311,6 +385,8 @@ async function createMovie(payload) {
     );
 
     await syncMovieGenres(connection, result.insertId, payload.genreIds);
+    await syncMoviePeople(connection, result.insertId, 'phim_dienvien', 'MaDienVien', payload.actorIds);
+    await syncMoviePeople(connection, result.insertId, 'phim_daodien', 'MaDaoDien', payload.directorIds);
     await connection.commit();
 
     return getAdminMovieById(result.insertId);
@@ -361,6 +437,8 @@ async function updateMovie(id, payload) {
 
     if (payload.isPublished === true) {
       sets.push('published_at = COALESCE(published_at, NOW())');
+    } else if (payload.isPublished === false) {
+      sets.push('published_at = NULL');
     }
 
     if (sets.length > 0) {
@@ -376,6 +454,14 @@ async function updateMovie(id, payload) {
 
     if (Object.prototype.hasOwnProperty.call(payload, 'genreIds')) {
       await syncMovieGenres(connection, id, payload.genreIds);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'actorIds')) {
+      await syncMoviePeople(connection, id, 'phim_dienvien', 'MaDienVien', payload.actorIds);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'directorIds')) {
+      await syncMoviePeople(connection, id, 'phim_daodien', 'MaDaoDien', payload.directorIds);
     }
 
     await connection.commit();
@@ -416,6 +502,195 @@ async function listEpisodes(movieId) {
   );
 
   return rows;
+}
+
+async function listAdminEpisodes({ movieId = null, page = 1, limit = 50 }) {
+  const safePage = Math.max(Number(page) || 1, 1);
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const offset = (safePage - 1) * safeLimit;
+  const where = ['tp.upload_status <> "deleted"'];
+  const params = { limit: safeLimit, offset };
+
+  if (movieId) {
+    where.push('tp.MaPhim = :movieId');
+    params.movieId = Number(movieId);
+  }
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        tp.MaTap, tp.MaPhim, tp.TenTap, tp.Link, tp.original_file, tp.hls_url,
+        tp.cloudfront_url, tp.status, tp.duration, tp.upload_status,
+        tp.error_message, tp.file_size_bytes, tp.created_at, tp.updated_at,
+        p.TenPhim
+      FROM tapphim tp
+      LEFT JOIN phim p ON p.MaPhim = tp.MaPhim
+      WHERE ${where.join(' AND ')}
+      ORDER BY tp.MaTap DESC
+      LIMIT :limit OFFSET :offset
+    `,
+    params
+  );
+
+  const [countRows] = await pool.execute(
+    `
+      SELECT COUNT(*) AS total
+      FROM tapphim tp
+      WHERE ${where.join(' AND ')}
+    `,
+    params
+  );
+
+  return {
+    data: rows,
+    meta: {
+      page: safePage,
+      limit: safeLimit,
+      total: countRows[0].total,
+      totalPages: Math.ceil(countRows[0].total / safeLimit)
+    }
+  };
+}
+
+async function getAdminEpisodeById(id) {
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        tp.MaTap, tp.MaPhim, tp.TenTap, tp.Link, tp.original_file, tp.hls_url,
+        tp.cloudfront_url, tp.status, tp.duration, tp.upload_status,
+        tp.error_message, tp.file_size_bytes, tp.created_at, tp.updated_at,
+        p.TenPhim
+      FROM tapphim tp
+      LEFT JOIN phim p ON p.MaPhim = tp.MaPhim
+      WHERE tp.MaTap = :id AND tp.upload_status <> 'deleted'
+      LIMIT 1
+    `,
+    { id }
+  );
+
+  if (!rows[0]) {
+    throw new HttpError(404, 'Khong tim thay tap phim.');
+  }
+
+  return rows[0];
+}
+
+async function createEpisode(payload) {
+  await getAdminMovieById(payload.movieId);
+
+  const [result] = await pool.execute(
+    `
+      INSERT INTO tapphim (
+        MaPhim, TenTap, Link, original_file, hls_url, cloudfront_url,
+        status, duration, upload_status
+      )
+      VALUES (
+        :movieId, :name, :link, :originalFile, :hlsUrl, :cloudfrontUrl,
+        :status, :duration, :uploadStatus
+      )
+    `,
+    {
+      movieId: payload.movieId,
+      name: payload.name || null,
+      link: payload.link || null,
+      originalFile: payload.originalFile || null,
+      hlsUrl: payload.hlsUrl || null,
+      cloudfrontUrl: payload.cloudfrontUrl || null,
+      status: payload.status || 'active',
+      duration: payload.duration || null,
+      uploadStatus: payload.uploadStatus || 'ready'
+    }
+  );
+
+  return getAdminEpisodeById(result.insertId);
+}
+
+async function updateEpisode(id, payload) {
+  await getAdminEpisodeById(id);
+
+  if (payload.movieId) {
+    await getAdminMovieById(payload.movieId);
+  }
+
+  const columnMap = {
+    movieId: 'MaPhim',
+    name: 'TenTap',
+    link: 'Link',
+    originalFile: 'original_file',
+    hlsUrl: 'hls_url',
+    cloudfrontUrl: 'cloudfront_url',
+    status: 'status',
+    duration: 'duration',
+    uploadStatus: 'upload_status'
+  };
+  const sets = [];
+  const params = { id };
+
+  for (const [key, column] of Object.entries(columnMap)) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      sets.push(`${column} = :${key}`);
+      params[key] = payload[key] === undefined ? null : payload[key];
+    }
+  }
+
+  if (sets.length > 0) {
+    await pool.execute(
+      `
+        UPDATE tapphim
+        SET ${sets.join(', ')}
+        WHERE MaTap = :id
+      `,
+      params
+    );
+  }
+
+  return getAdminEpisodeById(id);
+}
+
+async function deleteEpisode(id) {
+  const [result] = await pool.execute(
+    `
+      UPDATE tapphim
+      SET upload_status = 'deleted'
+      WHERE MaTap = :id
+    `,
+    { id }
+  );
+
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay tap phim.');
+  }
+}
+
+async function getAdminStats() {
+  const [[movieRows], [episodeRows], [userRows], [genreRows], [countryRows], [commentRows], [favoriteRows], [viewRows], [latestRows]] = await Promise.all([
+    pool.execute('SELECT COUNT(*) AS total, SUM(is_published = 1) AS published, COALESCE(SUM(LuotXem), 0) AS views FROM phim'),
+    pool.execute("SELECT COUNT(*) AS total, SUM(upload_status = 'ready') AS ready FROM tapphim WHERE upload_status <> 'deleted'"),
+    pool.execute("SELECT COUNT(*) AS total, SUM(vai_tro = 'admin') AS admins, SUM(trang_thai = 'active') AS active FROM tai_khoan"),
+    pool.execute('SELECT COUNT(*) AS total FROM theloai'),
+    pool.execute('SELECT COUNT(*) AS total FROM quocgia'),
+    pool.execute('SELECT COUNT(*) AS total FROM binhluan'),
+    pool.execute('SELECT COUNT(*) AS total FROM phim_yeuthich'),
+    pool.execute('SELECT COALESCE(SUM(ThoiGianXem), 0) AS watchedSeconds FROM lichsu'),
+    pool.execute(`
+      SELECT MaPhim, TenPhim, LuotXem, DanhGia, NgayTao
+      FROM phim
+      ORDER BY MaPhim DESC
+      LIMIT 6
+    `)
+  ]);
+
+  return {
+    movies: movieRows[0],
+    episodes: episodeRows[0],
+    users: userRows[0],
+    genres: genreRows[0],
+    countries: countryRows[0],
+    comments: commentRows[0],
+    favorites: favoriteRows[0],
+    history: viewRows[0],
+    latestMovies: latestRows
+  };
 }
 
 async function addFavorite(movieId, userId) {
@@ -652,10 +927,15 @@ async function createComment({ user, movieId, content, parentId = null }) {
 module.exports = {
   addFavorite,
   createComment,
+  createEpisode,
   createMovie,
+  deleteEpisode,
   deleteMovie,
+  getAdminEpisodeById,
   getAdminMovieById,
+  getAdminStats,
   getMovieById,
+  listAdminEpisodes,
   listComments,
   listEpisodes,
   listFavorites,
@@ -664,5 +944,6 @@ module.exports = {
   rateMovie,
   removeFavorite,
   saveHistory,
+  updateEpisode,
   updateMovie
 };

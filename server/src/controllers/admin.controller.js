@@ -1,6 +1,7 @@
 const accountService = require('../services/account.service');
 const catalogService = require('../services/catalog.service');
 const movieService = require('../services/movie.service');
+const personService = require('../services/person.service');
 
 async function listUsers(req, res, next) {
   try {
@@ -64,6 +65,198 @@ async function listMovies(req, res, next) {
     res.json({
       success: true,
       ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listActors(req, res, next) {
+  try {
+    const result = await personService.listPeople('actors', req.query);
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function createActor(req, res, next) {
+  try {
+    const actor = await personService.createPerson('actors', req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Da tao dien vien.',
+      data: actor
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateActor(req, res, next) {
+  try {
+    const actor = await personService.updatePerson('actors', Number(req.params.id), req.body);
+
+    res.json({
+      success: true,
+      message: 'Da cap nhat dien vien.',
+      data: actor
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteActor(req, res, next) {
+  try {
+    await personService.deletePerson('actors', Number(req.params.id));
+
+    res.json({
+      success: true,
+      message: 'Da xoa dien vien.'
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listDirectors(req, res, next) {
+  try {
+    const result = await personService.listPeople('directors', req.query);
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function createDirector(req, res, next) {
+  try {
+    const director = await personService.createPerson('directors', req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Da tao dao dien.',
+      data: director
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateDirector(req, res, next) {
+  try {
+    const director = await personService.updatePerson('directors', Number(req.params.id), req.body);
+
+    res.json({
+      success: true,
+      message: 'Da cap nhat dao dien.',
+      data: director
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteDirector(req, res, next) {
+  try {
+    await personService.deletePerson('directors', Number(req.params.id));
+
+    res.json({
+      success: true,
+      message: 'Da xoa dao dien.'
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function stats(req, res, next) {
+  try {
+    const result = await movieService.getAdminStats();
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listEpisodes(req, res, next) {
+  try {
+    const result = await movieService.listAdminEpisodes({
+      page: req.query.page,
+      limit: req.query.limit,
+      movieId: req.query.movieId ? Number(req.query.movieId) : null
+    });
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getEpisode(req, res, next) {
+  try {
+    const episode = await movieService.getAdminEpisodeById(Number(req.params.id));
+
+    res.json({
+      success: true,
+      data: episode
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function createEpisode(req, res, next) {
+  try {
+    const episode = await movieService.createEpisode(req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Da tao tap phim.',
+      data: episode
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateEpisode(req, res, next) {
+  try {
+    const episode = await movieService.updateEpisode(Number(req.params.id), req.body);
+
+    res.json({
+      success: true,
+      message: 'Da cap nhat tap phim.',
+      data: episode
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteEpisode(req, res, next) {
+  try {
+    await movieService.deleteEpisode(Number(req.params.id));
+
+    res.json({
+      success: true,
+      message: 'Da xoa tap phim.'
     });
   } catch (error) {
     next(error);
@@ -207,16 +400,30 @@ async function deleteCountry(req, res, next) {
 }
 
 module.exports = {
+  createActor,
   createCountry,
+  createDirector,
+  createEpisode,
   createGenre,
   createMovie,
+  deleteActor,
   deleteCountry,
+  deleteDirector,
+  deleteEpisode,
   deleteGenre,
   deleteMovie,
+  getEpisode,
   getMovie,
+  listActors,
+  listDirectors,
+  listEpisodes,
   listMovies,
   listUsers,
+  stats,
+  updateActor,
+  updateEpisode,
   updateCountry,
+  updateDirector,
   updateGenre,
   updateMovie,
   updateUserRole,

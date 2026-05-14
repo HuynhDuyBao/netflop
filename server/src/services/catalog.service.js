@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const HttpError = require('../utils/httpError');
 
 async function listGenres() {
   const [rows] = await pool.execute(
@@ -35,7 +36,7 @@ async function createGenre(name) {
 }
 
 async function updateGenre(id, name) {
-  await pool.execute(
+  const [result] = await pool.execute(
     `
       UPDATE theloai
       SET TenTheLoai = :name
@@ -43,6 +44,10 @@ async function updateGenre(id, name) {
     `,
     { id, name }
   );
+
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay the loai.');
+  }
 
   const [rows] = await pool.execute(
     `
@@ -58,13 +63,17 @@ async function updateGenre(id, name) {
 }
 
 async function deleteGenre(id) {
-  await pool.execute(
+  const [result] = await pool.execute(
     `
       DELETE FROM theloai
       WHERE MaTheLoai = :id
     `,
     { id }
   );
+
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay the loai.');
+  }
 }
 
 async function listCountries() {
@@ -102,7 +111,7 @@ async function createCountry(name) {
 }
 
 async function updateCountry(id, name) {
-  await pool.execute(
+  const [result] = await pool.execute(
     `
       UPDATE quocgia
       SET TenQuocGia = :name
@@ -110,6 +119,10 @@ async function updateCountry(id, name) {
     `,
     { id, name }
   );
+
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay quoc gia.');
+  }
 
   const [rows] = await pool.execute(
     `
@@ -125,13 +138,17 @@ async function updateCountry(id, name) {
 }
 
 async function deleteCountry(id) {
-  await pool.execute(
+  const [result] = await pool.execute(
     `
       DELETE FROM quocgia
       WHERE MaQuocGia = :id
     `,
     { id }
   );
+
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Khong tim thay quoc gia.');
+  }
 }
 
 module.exports = {

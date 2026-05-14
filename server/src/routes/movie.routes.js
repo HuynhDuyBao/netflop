@@ -2,7 +2,7 @@ const express = require('express');
 const Joi = require('joi');
 const movieController = require('../controllers/movie.controller');
 const validate = require('../middlewares/validate.middleware');
-const { authenticate } = require('../middlewares/auth.middleware');
+const { authenticate, optionalAuthenticate } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ const commentSchema = Joi.object({
 });
 
 router.get('/', movieController.listMovies);
-router.get('/:id', movieController.getMovie);
+router.get('/:id', optionalAuthenticate, movieController.getMovie);
 router.get('/:id/episodes', movieController.listEpisodes);
 router.get('/:id/comments', movieController.listComments);
 router.post('/:id/comments', authenticate, validate(commentSchema), movieController.createComment);

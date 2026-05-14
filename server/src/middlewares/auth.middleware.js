@@ -30,6 +30,29 @@ async function authenticate(req, res, next) {
   }
 }
 
+async function optionalAuthenticate(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const [scheme, token] = header.split(' ');
+
+    if (scheme !== 'Bearer' || !token) {
+      next();
+      return;
+    }
+
+    const payload = verifyAccessToken(token);
+    const user = await accountService.findById(payload.sub);
+
+    if (user && user.trang_thai === 'active') {
+      req.user = user;
+    }
+
+    next();
+  } catch (error) {
+    next();
+  }
+}
+
 function authorizeRoles(...roles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -48,5 +71,6 @@ function authorizeRoles(...roles) {
 
 module.exports = {
   authenticate,
+  optionalAuthenticate,
   authorizeRoles
 };
