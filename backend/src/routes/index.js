@@ -1,0 +1,36 @@
+const express = require('express');
+const authRoutes = require('./auth.routes');
+const adminRoutes = require('./admin.routes');
+const movieRoutes = require('./movie.routes');
+const catalogRoutes = require('./catalog.routes');
+const tmdbRoutes = require('./tmdb.routes');
+const episodeRoutes = require('./episode.routes');
+const genreRoutes = require('./genre.routes');
+const commentRoutes = require('./comment.routes');
+const ratingRoutes = require('./rating.routes');
+const uploadRoutes = require('./upload.routes');
+const personRoutes = require('./person.routes');
+const healthController = require('../controllers/health.controller');
+const mediaProxyController = require('../controllers/mediaProxy.controller');
+const movieController = require('../controllers/movie.controller');
+const { authenticate } = require('../middlewares/auth.middleware');
+
+const router = express.Router();
+
+router.get('/health', healthController.health);
+router.get('/media-proxy', mediaProxyController.proxyMedia);
+router.use('/auth', authRoutes);
+router.use('/admin', adminRoutes);
+router.use('/movies', movieRoutes);
+router.use('/catalog', catalogRoutes);
+router.use('/tmdb', tmdbRoutes);
+router.use('/episodes', episodeRoutes);
+router.use('/genres', genreRoutes);
+router.use('/comments', commentRoutes);
+router.use('/ratings', ratingRoutes);
+router.use('/uploads', uploadRoutes);
+router.use('/people', personRoutes);
+router.get('/me/favorites', authenticate, movieController.listFavorites);
+router.get('/me/history', authenticate, movieController.listHistory);
+
+module.exports = router;

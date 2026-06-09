@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 260" role="img" aria-labelledby="title desc">
+  <title id="title">Netflop</title>
+  <desc id="desc">Logo Netflop trong suốt với biểu tượng phát phim màu đỏ cam, chữ Netflop và dòng Xem phim trực tuyến.</desc>
+  <defs>
+    <linearGradient id="flame" x1="205" x2="535" y1="34" y2="175" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff7a2a"/>
+      <stop offset=".48" stop-color="#ff302c"/>
+      <stop offset="1" stop-color="#c50f3f"/>
+    </linearGradient>
+    <linearGradient id="net" x1="138" x2="323" y1="188" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6a22"/>
+      <stop offset="1" stop-color="#ff302c"/>
+    </linearGradient>
+    <filter id="glow" x="-35%" y="-45%" width="170%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1  0 .16 0 0 .12  0 0 .14 0 .1  0 0 0 .72 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)">
+    <path d="M294 42c-43 3-82 39-87 84-5 44 27 80 70 86-62 8-114-37-107-92 7-56 66-95 124-78Z" fill="url(#flame)"/>
+    <path d="M447 42c43 3 82 39 87 84 5 44-27 80-70 86 62 8 114-37 107-92-7-56-66-95-124-78Z" fill="url(#flame)"/>
+    <path d="M346 54c-16 0-28 13-28 29v72c0 16 12 29 28 29 7 0 13-2 19-5l78-45c21-12 21-43 0-55l-78-45c-6-3-12-5-19-5Zm-3 27 83 48-83 48V81Z" fill="url(#flame)"/>
+    <path d="M328 74h16v13h-16V74Zm0 28h16v13h-16v-13Zm0 28h16v13h-16v-13Zm0 28h16v13h-16v-13Z" fill="#121818"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif" font-weight="900" letter-spacing="0">
+    <text x="138" y="204" fill="url(#net)" font-size="76">NET</text>
+    <text x="305" y="204" fill="#f7f7f5" font-size="76">FLOP</text>
+    <text x="245" y="236" fill="#ffffff" font-size="24" font-weight="800">XEM PHIM TRỰC TUYẾN</text>
+  </g>
+</svg>

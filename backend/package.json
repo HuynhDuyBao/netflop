@@ -1,0 +1,33 @@
+{
+  "name": "netflop-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Netflop using Node.js, Express, MySQL and JWT.",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "update:views": "node src/scripts/updateViewCounts.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-mediaconvert": "^3.716.0",
+    "@aws-sdk/client-s3": "^3.716.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "debug": "^4.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.22.2",
+    "helmet": "^8.0.0",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.11.5",
+    "netflop": "file:.."
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

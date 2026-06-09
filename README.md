@@ -1,289 +1,101 @@
-# Netflop Backend
+# Netflop
 
-Backend API for the `webapixemphim` MySQL database running on XAMPP.
-
-## Tech stack
-
-- Node.js 18+
-- Express
-- MySQL via `mysql2`
-- JWT authentication
-- Role-based access control from `tai_khoan.vai_tro`
-
-## Project structure
+React frontend and Node.js Express backend project.
 
 ```text
-src/
-  config/        Database and environment config
-  controllers/   Request handlers
-  middlewares/   Auth, role, validation and error middlewares
-  routes/        API route definitions
-  services/      Business logic and SQL queries
-  utils/         JWT, password and error helpers
+netflop/
+  frontend/   React user and admin interface
+  backend/    Node.js + Express API server
+  database/   SQL schema, seed data, and backups
+  docs/       API, database, and TMDB notes
+  README.md
+  .gitignore
 ```
 
-## Setup
+## Run Backend
 
-1. Import your SQL file into MySQL/XAMPP. Database name must be `webapixemphim`.
-2. Install dependencies:
+The existing API lives in `backend/`.
 
 ```bash
+cd backend
 npm install
-```
-
-3. Copy `.env.example` to `.env` and update your local MySQL password:
-
-```bash
-cp .env.example .env
-```
-
-On Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-4. Start the API:
-
-```bash
 npm run dev
 ```
 
-API URL:
+Or from the project root:
+
+```bash
+npm run backend
+```
+
+The backend reads environment variables from `backend/.env`.
+
+MySQL must contain a database named `web_xem_phim`, matching `DB_DATABASE` in
+`backend/.env`.
+
+## Run Frontend
+
+The React app lives in `frontend/`.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Or from the project root:
+
+```bash
+npm run frontend
+```
+
+Frontend API URL is configured in `frontend/.env`.
+
+## TMDB And Upload
+
+Add your real keys to `backend/.env`:
+
+```env
+TMDB_API_KEY=your_tmdb_api_key
+TMDB_ACCESS_TOKEN=your_tmdb_read_access_token
+
+AWS_REGION=ap-southeast-1
+AWS_S3_INPUT_BUCKET=your-input-bucket
+AWS_S3_OUTPUT_BUCKET=your-output-bucket
+AWS_CLOUDFRONT_DOMAIN=https://your-cloudfront-domain.cloudfront.net
+AWS_MEDIACONVERT_ROLE_ARN=your-mediaconvert-role-arn
+```
+
+Admin TMDB import flow:
 
 ```text
-http://localhost:5000
+TmdbImport.jsx -> tmdbApi.js -> tmdb.routes.js -> tmdb.controller.js -> tmdb.service.js -> TMDb API
 ```
 
-## Main APIs
+Episode upload flow:
 
-### Health
-
-```http
-GET /api/health
+```text
+EpisodeCreate.jsx -> UploadVideo.jsx -> uploadApi.js -> upload.routes.js -> upload.controller.js -> awsS3.service.js -> mediaConvert.service.js -> CloudFront URL -> tapphim
 ```
 
-### Register user
+## Root Scripts
 
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "username": "user01",
-  "email": "user01@example.com",
-  "password": "123456",
-  "fullName": "User 01"
-}
+```bash
+npm run backend        # start backend in dev mode
+npm run backend:start  # start backend with node
+npm run frontend       # start React dev server
+npm run frontend:build # build React app
 ```
 
-### Login
+## Important Folders
 
-Use username or email in `identifier`.
-
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "identifier": "admin",
-  "password": "123456"
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "token": "JWT_TOKEN",
-    "user": {
-      "id": 1,
-      "ten_dang_nhap": "admin",
-      "vai_tro": "admin"
-    }
-  }
-}
-```
-
-### Current user
-
-```http
-GET /api/auth/me
-Authorization: Bearer JWT_TOKEN
-```
-
-### Admin users
-
-Requires `tai_khoan.vai_tro = 'admin'`.
-
-```http
-GET /api/admin/users
-Authorization: Bearer JWT_TOKEN
-```
-
-```http
-PATCH /api/admin/users/:id/role
-Authorization: Bearer JWT_TOKEN
-Content-Type: application/json
-
-{
-  "role": "admin"
-}
-```
-
-```http
-PATCH /api/admin/users/:id/status
-Authorization: Bearer JWT_TOKEN
-Content-Type: application/json
-
-{
-  "status": "banned"
-}
-```
-
-### Movies
-
-```http
-GET /api/movies?search=&genreId=&countryId=&year=&type=&status=&sort=latest&page=1&limit=20
-```
-
-Supported `sort`: `latest`, `popular`, `rating`, `year`.
-
-```http
-GET /api/movies/:id
-```
-
-```http
-GET /api/movies/:id/episodes
-```
-
-```http
-GET /api/movies/:id/comments
-```
-
-Requires login:
-
-```http
-POST /api/movies/:id/favorite
-Authorization: Bearer JWT_TOKEN
-```
-
-```http
-DELETE /api/movies/:id/favorite
-Authorization: Bearer JWT_TOKEN
-```
-
-```http
-POST /api/movies/:id/history
-Authorization: Bearer JWT_TOKEN
-Content-Type: application/json
-
-{
-  "episodeId": 1,
-  "watchedSeconds": 120
-}
-```
-
-```http
-POST /api/movies/:id/rating
-Authorization: Bearer JWT_TOKEN
-Content-Type: application/json
-
-{
-  "score": 8,
-  "comment": "Good movie"
-}
-```
-
-```http
-POST /api/movies/:id/comments
-Authorization: Bearer JWT_TOKEN
-Content-Type: application/json
-
-{
-  "content": "Nice episode",
-  "parentId": null
-}
-```
-
-### Catalog
-
-```http
-GET /api/catalog/genres
-GET /api/catalog/countries
-```
-
-### Current user's movie data
-
-Requires login:
-
-```http
-GET /api/me/favorites
-Authorization: Bearer JWT_TOKEN
-```
-
-```http
-GET /api/me/history
-Authorization: Bearer JWT_TOKEN
-```
-
-### Admin movie and catalog management
-
-Requires `tai_khoan.vai_tro = 'admin'`.
-
-```http
-GET /api/admin/movies
-POST /api/admin/movies
-GET /api/admin/movies/:id
-PATCH /api/admin/movies/:id
-DELETE /api/admin/movies/:id
-```
-
-Create movie body:
-
-```json
-{
-  "name": "Movie name",
-  "title": "Movie title",
-  "description": "Short description",
-  "content": "Long content",
-  "duration": 120,
-  "year": 2026,
-  "status": "Đang chiếu",
-  "type": "Lẻ",
-  "poster": "https://example.com/poster.jpg",
-  "banner": "https://example.com/banner.jpg",
-  "link": "https://example.com/watch",
-  "countryId": 1,
-  "hlsMasterUrl": "https://example.com/master.m3u8",
-  "isPublished": true,
-  "genreIds": [1, 2]
-}
-```
-
-```http
-POST /api/admin/genres
-PATCH /api/admin/genres/:id
-DELETE /api/admin/genres/:id
-
-POST /api/admin/countries
-PATCH /api/admin/countries/:id
-DELETE /api/admin/countries/:id
-```
-
-## Create first admin
-
-If you already have an account in `tai_khoan`, promote it in phpMyAdmin:
-
-```sql
-UPDATE tai_khoan
-SET vai_tro = 'admin', trang_thai = 'active'
-WHERE ten_dang_nhap = 'your_username';
-```
-
-## Password note
-
-New accounts created by this backend are saved with bcrypt hashes.
-For old accounts, login also supports plain-text passwords so you can migrate safely.
+- `frontend/src/components`: shared React components
+- `frontend/src/pages`: user pages
+- `frontend/src/admin`: admin pages and components
+- `frontend/src/services`: API clients
+- `backend/src/controllers`: request handlers
+- `backend/src/routes`: API routes
+- `backend/src/services`: business logic
+- `backend/uploads`: local upload folders for testing
+- `database`: SQL files
+- `docs`: project documentation
