@@ -51,6 +51,8 @@ module.exports = {
     s3InputBucket: process.env.AWS_S3_INPUT_BUCKET || '',
     s3OutputBucket: process.env.AWS_S3_OUTPUT_BUCKET || '',
     cloudFrontDomain: process.env.AWS_CLOUDFRONT_DOMAIN || '',
-    mediaConvertRoleArn: process.env.AWS_MEDIACONVERT_ROLE_ARN || ''
+    mediaConvertRoleArn: process.env.AWS_MEDIACONVERT_ROLE_ARN || '',
+    mediaConvertEndpoint: process.env.AWS_MEDIACONVERT_ENDPOINT || '',
+    mediaConvertWebhookSecret: process.env.AWS_MEDIACONVERT_WEBHOOK_SECRET || ''
   }
 };

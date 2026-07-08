@@ -204,7 +204,7 @@ async function getMovieById(id, user = null) {
     `
       SELECT MaTap, MaPhim, TenTap, Link, hls_url, cloudfront_url, upload_status, duration, created_at, updated_at
       FROM tapphim
-      WHERE MaPhim = :id AND upload_status <> 'deleted'
+      WHERE MaPhim = :id AND (upload_status IS NULL OR upload_status = 'ready')
       ORDER BY MaTap ASC
     `,
     { id }
@@ -661,7 +661,7 @@ async function listEpisodes(movieId) {
   const episodeModel = require('../models/episode.model');
   const rows = await episodeModel.listByMovieId(movieId);
   return rows
-    .filter((episode) => episode.upload_status !== 'deleted')
+    .filter((episode) => !episode.upload_status || episode.upload_status === 'ready')
     .sort((left, right) => Number(left.MaTap) - Number(right.MaTap));
 }
 

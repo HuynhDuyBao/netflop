@@ -2,6 +2,7 @@ const episodeModel = require('../models/episode.model');
 const awsS3Service = require('../services/awsS3.service');
 const mediaConvertService = require('../services/mediaConvert.service');
 const cloudFrontService = require('../services/cloudFront.service');
+const awsConfig = require('../config/aws');
 const fs = require('fs/promises');
 const path = require('path');
 const HttpError = require('../utils/httpError');
@@ -66,6 +67,48 @@ function safeFileName(originalName) {
     .replace(/^-|-$/g, '')
     .slice(0, 80) || 'file';
   return `${Date.now()}-${baseName}${parsed.ext.toLowerCase()}`;
+}
+
+function getMasterUrls(masterKey) {
+  return {
+    hlsUrl: awsS3Service.getPublicObjectUrl(awsConfig.s3OutputBucket, masterKey),
+    cloudFrontUrl: cloudFrontService.getUrl(masterKey)
+  };
+}
+
+function normalizeMediaConvertStatus(status) {
+  return String(status || '').toUpperCase();
+}
+
+function getEventJobId(eventBody) {
+  return eventBody?.detail?.jobId || eventBody?.detail?.job_id || eventBody?.jobId || eventBody?.job_id || '';
+}
+
+function getEventStatus(eventBody) {
+  return eventBody?.detail?.status || eventBody?.status || '';
+}
+
+function getEventMetadata(eventBody) {
+  return eventBody?.detail?.userMetadata || eventBody?.detail?.user_metadata || eventBody?.userMetadata || {};
+}
+
+function getEventError(eventBody) {
+  return eventBody?.detail?.errorMessage
+    || eventBody?.detail?.error_message
+    || eventBody?.detail?.message
+    || eventBody?.errorMessage
+    || 'MediaConvert job failed.';
+}
+
+function assertWebhookSecret(req) {
+  if (!awsConfig.mediaConvertWebhookSecret) {
+    return;
+  }
+
+  const receivedSecret = req.get('x-netflop-event-secret');
+  if (receivedSecret !== awsConfig.mediaConvertWebhookSecret) {
+    throw new HttpError(401, 'MediaConvert webhook secret khong hop le.');
+  }
 }
 
 async function uploadMedia(req, res, next) {
@@ -149,16 +192,120 @@ async function uploadVideo(req, res, next) {
       episodeId: pendingEpisode.MaTap
     });
 
-    const cloudFrontUrl = cloudFrontService.getUrl(job.masterKey);
+    const playbackUrls = getMasterUrls(job.masterKey);
+    const episode = await episodeModel.updateUploadProcessing(pendingEpisode.MaTap, {
+      jobId: job.jobId,
+      hlsUrl: playbackUrls.hlsUrl,
+      cloudFrontUrl: playbackUrls.cloudFrontUrl,
+      outputKey: job.masterKey
+    });
 
     res.status(201).json({
       success: true,
       message: 'Da upload video va tao job xu ly HLS.',
       data: {
-        episode: pendingEpisode,
+        episode,
         s3: uploaded,
         mediaConvert: job,
-        cloudFrontUrl
+        hlsUrl: playbackUrls.hlsUrl,
+        cloudFrontUrl: playbackUrls.cloudFrontUrl
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function handleMediaConvertEvent(req, res, next) {
+  try {
+    assertWebhookSecret(req);
+
+    const jobId = getEventJobId(req.body);
+    const status = normalizeMediaConvertStatus(getEventStatus(req.body));
+    const metadata = getEventMetadata(req.body);
+    const episodeId = Number(metadata.episodeId || req.body?.episodeId);
+
+    if (!jobId && !episodeId) {
+      throw new HttpError(400, 'Thieu MediaConvert job id hoac episode id.');
+    }
+
+    const episode = episodeId
+      ? await episodeModel.findById(episodeId)
+      : await episodeModel.findByMediaConvertJobId(jobId);
+
+    if (!episode) {
+      throw new HttpError(404, 'Khong tim thay tap phim cho MediaConvert job.');
+    }
+
+    const masterKey = metadata.masterKey || episode.hls_output_key;
+    const playbackUrls = getMasterUrls(masterKey);
+    let updatedEpisode = episode;
+
+    if (status === 'COMPLETE') {
+      updatedEpisode = await episodeModel.markUploadReady(episode.MaTap, {
+        hlsUrl: playbackUrls.hlsUrl,
+        cloudFrontUrl: playbackUrls.cloudFrontUrl,
+        outputKey: masterKey
+      });
+    } else if (['ERROR', 'CANCELED'].includes(status)) {
+      updatedEpisode = await episodeModel.markUploadFailed(episode.MaTap, {
+        errorMessage: getEventError(req.body)
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Da nhan su kien MediaConvert.',
+      data: {
+        jobId,
+        status,
+        episode: updatedEpisode
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function syncVideoStatus(req, res, next) {
+  try {
+    const episode = await episodeModel.findById(Number(req.params.episodeId));
+
+    if (!episode) {
+      throw new HttpError(404, 'Khong tim thay tap phim.');
+    }
+
+    if (!episode.media_convert_job_id) {
+      throw new HttpError(400, 'Tap phim nay chua co MediaConvert job id.');
+    }
+
+    const job = await mediaConvertService.getJob(episode.media_convert_job_id);
+    const status = normalizeMediaConvertStatus(job?.Status);
+    const masterKey = job?.UserMetadata?.masterKey || episode.hls_output_key;
+    const playbackUrls = getMasterUrls(masterKey);
+    let updatedEpisode = episode;
+
+    if (status === 'COMPLETE') {
+      updatedEpisode = await episodeModel.markUploadReady(episode.MaTap, {
+        hlsUrl: playbackUrls.hlsUrl,
+        cloudFrontUrl: playbackUrls.cloudFrontUrl,
+        outputKey: masterKey
+      });
+    } else if (['ERROR', 'CANCELED'].includes(status)) {
+      updatedEpisode = await episodeModel.markUploadFailed(episode.MaTap, {
+        errorMessage: job?.ErrorMessage || 'MediaConvert job failed.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Da dong bo trang thai MediaConvert.',
+      data: {
+        mediaConvert: {
+          jobId: job?.Id,
+          status
+        },
+        episode: updatedEpisode
       }
     });
   } catch (error) {
@@ -167,6 +314,8 @@ async function uploadVideo(req, res, next) {
 }
 
 module.exports = {
+  handleMediaConvertEvent,
+  syncVideoStatus,
   uploadMedia,
   uploadVideo
 };

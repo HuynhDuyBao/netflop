@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import FileUrlInput from '../../components/FileUrlInput.jsx';
 import { episodeApi } from '../../services/episodeApi.js';
 import { uploadApi } from '../../services/uploadApi.js';
+import UploadVideo from '../components/UploadVideo.jsx';
 
 const emptyForm = {
   movieId: '',
@@ -117,6 +118,22 @@ function EpisodeList() {
     }
   }
 
+  async function syncEpisode(id) {
+    setBusyId(id);
+    setMessage('');
+    setError('');
+    try {
+      const response = await uploadApi.syncVideoStatus(id);
+      const status = response.data?.data?.mediaConvert?.status || 'UNKNOWN';
+      setMessage(`Da dong bo MediaConvert: ${status}.`);
+      await loadEpisodes();
+    } catch (syncError) {
+      setError(syncError.response?.data?.message || 'Khong dong bo duoc MediaConvert.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function addSubtitle(event) {
     event.preventDefault();
     if (!editingId) return;
@@ -144,12 +161,17 @@ function EpisodeList() {
         </div>
       </div>
 
+      <section className="admin-card">
+        <h2>Upload tập phim lên AWS</h2>
+        <UploadVideo onUploaded={() => loadEpisodes()} />
+      </section>
+
       <form className="admin-card admin-form-grid episode-form-grid" onSubmit={saveEpisode}>
         <input className="input" name="movieId" value={form.movieId} onChange={updateField} placeholder="ID phim" />
         <input className="input" name="title" value={form.title} onChange={updateField} placeholder="Tên tập" />
-        <FileUrlInput label="Video URL" name="sourceUrl" value={form.sourceUrl} onChange={updateField} onUpload={(file) => uploadMediaFile(file, 'video')} accept="video/*" placeholder="Dán URL video hoặc chọn tệp" />
-        <FileUrlInput label="HLS URL" name="hlsUrl" value={form.hlsUrl} onChange={updateField} onUpload={(file) => uploadMediaFile(file, 'hls')} accept=".m3u8,application/vnd.apple.mpegurl" placeholder="Dán URL HLS hoặc chọn tệp" />
-        <FileUrlInput label="CloudFront URL" name="cloudFrontUrl" value={form.cloudFrontUrl} onChange={updateField} onUpload={(file) => uploadMediaFile(file, file.name.toLowerCase().endsWith('.m3u8') ? 'hls' : 'video')} accept="video/*,.m3u8" placeholder="Dán URL CloudFront hoặc chọn tệp" />
+        <label>Video URL<input className="input" name="sourceUrl" value={form.sourceUrl} onChange={updateField} placeholder="Nguồn gốc hoặc URL thủ công" /></label>
+        <label>HLS URL<input className="input" name="hlsUrl" value={form.hlsUrl} onChange={updateField} placeholder="AWS output index.m3u8" /></label>
+        <label>CloudFront URL<input className="input" name="cloudFrontUrl" value={form.cloudFrontUrl} onChange={updateField} placeholder="CloudFront index.m3u8" /></label>
         <input className="input" name="duration" value={form.duration} onChange={updateField} placeholder="Thời lượng giây" />
         <select className="input" name="uploadStatus" value={form.uploadStatus} onChange={updateField}>
           <option value="ready">Sẵn sàng</option>
@@ -218,6 +240,9 @@ function EpisodeList() {
             <span>{episode.cloudfront_url || episode.hls_url || episode.Link || '-'}</span>
             <span>{episode.upload_status || '-'}</span>
             <span className="row-actions">
+              {episode.media_convert_job_id && (
+                <button type="button" onClick={() => syncEpisode(episode.MaTap)} disabled={busyId === episode.MaTap}>Sync</button>
+              )}
               <button type="button" onClick={() => editEpisode(episode)}>Sửa</button>
               <button type="button" onClick={() => deleteEpisode(episode.MaTap)} disabled={busyId === episode.MaTap}>Xóa</button>
             </span>

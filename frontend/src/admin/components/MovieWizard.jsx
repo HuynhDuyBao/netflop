@@ -5,6 +5,7 @@ import { adminApi } from '../../services/adminApi.js';
 import { episodeApi } from '../../services/episodeApi.js';
 import { tmdbApi } from '../../services/tmdbApi.js';
 import { uploadApi } from '../../services/uploadApi.js';
+import UploadVideo from './UploadVideo.jsx';
 
 const statusOptions = [
   { value: 'Äang chiáº¿u', label: 'Đang chiếu' },
@@ -280,29 +281,13 @@ function MovieWizard({
   }
 
   function addEpisodeRow() {
-    if (movieId) {
-      episodeApi.create({
-        movieId: Number(movieId),
-        title: `Tập ${episodeRows.length + 1}`,
-        sourceUrl: '',
-        hlsUrl: '',
-        cloudFrontUrl: '',
-        uploadStatus: 'pending',
-        duration: null
-      }).then((response) => {
-        const episode = response.data.data;
-        setEpisodeRows((current) => [...current, { ...episode, subtitles: [] }]);
-        setSelectedEpisodeId(episode.MaTap);
-      }).catch((addError) => {
-        setError(addError.response?.data?.message || 'Không thêm được tập phim.');
-      });
+    if (!movieId) {
+      setError('Hãy lưu phim trước, sau đó upload file tập phim lên AWS.');
       return;
     }
 
-    setEpisodeRows((current) => [
-      ...current,
-      { title: `Tập ${current.length + 1}`, duration: '', status: 'Chờ xử lý' }
-    ]);
+    setError('');
+    setMessage('Chọn file video trong khung Upload AWS để tạo tập phim.');
   }
 
   async function reloadEpisodes(preferredEpisodeId = selectedEpisodeId) {
@@ -504,11 +489,18 @@ function MovieWizard({
             <h2>Upload tập phim</h2>
             <FileUrlInput label="Trailer URL" name="link" value={form.link} onChange={updateField} onUpload={(file) => uploadMediaFile(file, 'trailer')} accept="video/*" placeholder="Dán URL trailer hoặc chọn tệp" />
             <label>YouTube key<input className="input" name="trailerKey" value={form.trailerKey} onChange={updateField} /></label>
-            <FileUrlInput label="Video URL" name="videoUrl" value={form.videoUrl} onChange={updateField} onUpload={(file) => uploadMediaFile(file, 'video')} accept="video/*" placeholder="Dán URL video hoặc chọn tệp" />
-            <FileUrlInput label="HLS master" name="hlsMasterUrl" value={form.hlsMasterUrl} onChange={updateField} onUpload={(file) => uploadMediaFile(file, 'hls')} accept=".m3u8,application/vnd.apple.mpegurl" placeholder="Dán URL HLS hoặc chọn tệp" />
+            {movieId ? (
+              <UploadVideo
+                defaultMovieId={movieId}
+                lockMovieId
+                onUploaded={(data) => reloadEpisodes(data?.episode?.MaTap)}
+              />
+            ) : (
+              <p className="admin-empty-state">Lưu phim trước, sau đó upload file tập phim lên AWS.</p>
+            )}
             <div className="wizard-stream-note">
               <strong>Adaptive bitrate tự động</strong>
-              <span>Chỉ cần dán manifest HLS master của Cloudflare Stream hoặc AWS MediaConvert. Player tự đọc các mức 360p, 720p, 1080p từ file index.m3u8.</span>
+              <span>File tập phim được upload vào S3 input, MediaConvert tự xuất HLS 360p, 480p, 720p, 1080p sang S3 output để website phát từ CloudFront.</span>
             </div>
           </aside>
         </div>

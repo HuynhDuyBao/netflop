@@ -47,6 +47,20 @@ async function uploadVideo(file, { movieId, episodeName }) {
   };
 }
 
+function getPublicObjectUrl(bucket, key) {
+  if (!bucket || !key) {
+    return null;
+  }
+
+  const encodedKey = String(key)
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+
+  return `https://${bucket}.s3.${awsConfig.region}.amazonaws.com/${encodedKey}`;
+}
+
 module.exports = {
+  getPublicObjectUrl,
   uploadVideo
 };

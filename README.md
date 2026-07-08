@@ -64,6 +64,14 @@ AWS_S3_INPUT_BUCKET=your-input-bucket
 AWS_S3_OUTPUT_BUCKET=your-output-bucket
 AWS_CLOUDFRONT_DOMAIN=https://your-cloudfront-domain.cloudfront.net
 AWS_MEDIACONVERT_ROLE_ARN=your-mediaconvert-role-arn
+AWS_MEDIACONVERT_ENDPOINT=https://abcd1234.mediaconvert.ap-southeast-1.amazonaws.com
+AWS_MEDIACONVERT_WEBHOOK_SECRET=your-random-event-secret
+```
+
+Run the AWS media migration once before using the admin video upload:
+
+```sql
+SOURCE database/2026_07_08_add_aws_media_pipeline_columns.sql;
 ```
 
 Admin TMDB import flow:
@@ -75,7 +83,10 @@ TmdbImport.jsx -> tmdbApi.js -> tmdb.routes.js -> tmdb.controller.js -> tmdb.ser
 Episode upload flow:
 
 ```text
-EpisodeCreate.jsx -> UploadVideo.jsx -> uploadApi.js -> upload.routes.js -> upload.controller.js -> awsS3.service.js -> mediaConvert.service.js -> CloudFront URL -> tapphim
+EpisodeCreate.jsx -> UploadVideo.jsx -> uploadApi.js -> upload.routes.js
+  -> upload.controller.js -> awsS3.service.js -> mediaConvert.service.js
+  -> tapphim upload_status=processing -> EventBridge/webhook or admin Sync
+  -> tapphim upload_status=ready -> CloudFront/HLS URL is visible to the web player
 ```
 
 ## Root Scripts

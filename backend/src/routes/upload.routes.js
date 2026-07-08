@@ -4,9 +4,11 @@ const upload = require('../middlewares/upload.middleware');
 const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
-const adminOnly = [authenticate, authorizeRoles('admin')];
+const adminOnly = [authenticate, authorizeRoles('admin', 'super_admin')];
 
 router.post('/media', authenticate, upload.single('file'), uploadController.uploadMedia);
 router.post('/videos', adminOnly, upload.single('video'), uploadController.uploadVideo);
+router.post('/videos/:episodeId/sync', adminOnly, uploadController.syncVideoStatus);
+router.post('/mediaconvert/events', uploadController.handleMediaConvertEvent);
 
 module.exports = router;

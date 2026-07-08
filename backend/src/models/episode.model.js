@@ -16,6 +16,32 @@ async function attachPlaybackAssets(episodes) {
 }
 
 module.exports = {
+  findById: async (id) => {
+    const [rows] = await pool.execute('SELECT * FROM tapphim WHERE MaTap = :id LIMIT 1', { id });
+    return rows[0] || null;
+  },
+  findByMediaConvertJobId: async (jobId) => {
+    const [rows] = await pool.execute(
+      'SELECT * FROM tapphim WHERE media_convert_job_id = :jobId LIMIT 1',
+      { jobId }
+    );
+    return rows[0] || null;
+  },
+  listProcessingUploads: async ({ limit = 10 } = {}) => {
+    const [rows] = await pool.execute(
+      `
+        SELECT *
+        FROM tapphim
+        WHERE upload_status = 'processing'
+          AND media_convert_job_id IS NOT NULL
+        ORDER BY updated_at ASC, MaTap ASC
+        LIMIT :limit
+      `,
+      { limit: Number(limit) || 10 }
+    );
+
+    return rows;
+  },
   list: async ({ movieId = null } = {}) => {
     const params = {};
     const where = [];
@@ -143,6 +169,72 @@ module.exports = {
 
     const [rows] = await pool.execute('SELECT * FROM tapphim WHERE MaTap = :id LIMIT 1', { id: result.insertId });
     return rows[0];
+  },
+  updateUploadProcessing: async (id, { jobId, hlsUrl, cloudFrontUrl, outputKey }) => {
+    await pool.execute(
+      `
+        UPDATE tapphim
+        SET hls_url = :hlsUrl,
+            cloudfront_url = :cloudFrontUrl,
+            upload_status = 'processing',
+            media_convert_job_id = :jobId,
+            hls_output_key = :outputKey,
+            media_convert_error = NULL,
+            updated_at = NOW()
+        WHERE MaTap = :id
+      `,
+      {
+        id,
+        jobId,
+        hlsUrl: hlsUrl || null,
+        cloudFrontUrl: cloudFrontUrl || null,
+        outputKey: outputKey || null
+      }
+    );
+
+    const [rows] = await pool.execute('SELECT * FROM tapphim WHERE MaTap = :id LIMIT 1', { id });
+    return rows[0] || null;
+  },
+  markUploadReady: async (id, { hlsUrl, cloudFrontUrl, outputKey } = {}) => {
+    await pool.execute(
+      `
+        UPDATE tapphim
+        SET hls_url = COALESCE(:hlsUrl, hls_url),
+            cloudfront_url = COALESCE(:cloudFrontUrl, cloudfront_url),
+            hls_output_key = COALESCE(:outputKey, hls_output_key),
+            upload_status = 'ready',
+            media_convert_error = NULL,
+            updated_at = NOW()
+        WHERE MaTap = :id
+      `,
+      {
+        id,
+        hlsUrl: hlsUrl || null,
+        cloudFrontUrl: cloudFrontUrl || null,
+        outputKey: outputKey || null
+      }
+    );
+
+    const [rows] = await pool.execute('SELECT * FROM tapphim WHERE MaTap = :id LIMIT 1', { id });
+    return rows[0] || null;
+  },
+  markUploadFailed: async (id, { errorMessage } = {}) => {
+    await pool.execute(
+      `
+        UPDATE tapphim
+        SET upload_status = 'failed',
+            media_convert_error = :errorMessage,
+            updated_at = NOW()
+        WHERE MaTap = :id
+      `,
+      {
+        id,
+        errorMessage: errorMessage || null
+      }
+    );
+
+    const [rows] = await pool.execute('SELECT * FROM tapphim WHERE MaTap = :id LIMIT 1', { id });
+    return rows[0] || null;
   },
   attachPlaybackAssets
 };

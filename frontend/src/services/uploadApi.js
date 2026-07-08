@@ -10,5 +10,6 @@ export const uploadApi = {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
-  })
+  }),
+  syncVideoStatus: (episodeId) => axiosClient.post(`/uploads/videos/${episodeId}/sync`)
 };
