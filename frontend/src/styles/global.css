@@ -1160,6 +1160,19 @@ button:disabled,
   gap: 14px;
 }
 
+.social-login {
+  display: grid;
+  gap: 10px;
+  text-align: center;
+  color: #aeb7c8;
+}
+
+.form-success {
+  margin: 0;
+  color: #7ee2a8;
+  font-weight: 700;
+}
+
 .form-error {
   margin: 0;
   color: #ff8aa0;

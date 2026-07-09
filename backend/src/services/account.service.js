@@ -95,6 +95,19 @@ async function createAccount({ username, email, passwordHash, fullName, role = '
   return findById(result.insertId);
 }
 
+async function findByEmail(email) {
+  const [rows] = await pool.execute(
+    `
+      SELECT *
+      FROM tai_khoan
+      WHERE email = :email AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    { email }
+  );
+  return rows[0] || null;
+}
+
 async function listAccounts({ page = 1, limit = 20, search = '' }) {
   const offset = (page - 1) * limit;
   const likeSearch = `%${search}%`;
@@ -256,6 +269,7 @@ async function listUserRatings(user, { limit = 50 } = {}) {
 module.exports = {
   changePassword,
   createAccount,
+  findByEmail,
   findById,
   findByUsernameOrEmail,
   listAccounts,

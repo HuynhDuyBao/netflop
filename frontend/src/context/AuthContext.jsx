@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../services/authApi.js';
 
 export const AuthContext = createContext({
@@ -18,6 +18,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     async function loadCurrentUser() {
+      if (sessionStorage.getItem('cognitoLogoutPending') === '1') {
+        localStorage.removeItem('accessToken');
+        setUser(null);
+        setLoading(false);
+        sessionStorage.removeItem('cognitoLogoutPending');
+        return;
+      }
       const token = localStorage.getItem('accessToken');
 
       if (!token) {
@@ -42,7 +49,9 @@ export function AuthProvider({ children }) {
   async function login(payload) {
     setError('');
     const response = await authApi.login(payload);
-    const { token, user: loggedInUser } = response.data.data;
+    const result = response.data.data;
+    if (result.challenge) return result;
+    const { token, user: loggedInUser } = result;
     localStorage.setItem('accessToken', token);
     setUser(loggedInUser);
     return loggedInUser;
@@ -51,20 +60,42 @@ export function AuthProvider({ children }) {
   async function register(payload) {
     setError('');
     const response = await authApi.register(payload);
-    const { token, user: registeredUser } = response.data.data;
-    localStorage.setItem('accessToken', token);
-    setUser(registeredUser);
-    return registeredUser;
+    return response.data.data;
   }
 
-  function logout() {
+  async function completeChallenge(payload) {
+    const response = await authApi.challenge(payload);
+    const result = response.data.data;
+    if (result.challenge) return result;
+    localStorage.setItem('accessToken', result.token);
+    setUser(result.user);
+    return result;
+  }
+
+  const acceptSession = useCallback((result) => {
+    sessionStorage.removeItem('cognitoLogoutPending');
+    localStorage.setItem('accessToken', result.token);
+    setUser(result.user);
+    return result.user;
+  }, []);
+
+  async function logout() {
     localStorage.removeItem('accessToken');
+    sessionStorage.removeItem('cognitoOAuthState');
+    sessionStorage.removeItem('cognitoReturnTo');
+    sessionStorage.setItem('cognitoLogoutPending', '1');
     setUser(null);
+    try {
+      const response = await authApi.logoutUrl();
+      window.location.replace(response.data.data.url);
+    } catch {
+      window.location.replace('/');
+    }
   }
 
   const value = useMemo(
-    () => ({ loading, user, error, login, logout, register, setError, setUser }),
-    [loading, user, error]
+    () => ({ acceptSession, completeChallenge, loading, user, error, login, logout, register, setError, setUser }),
+    [acceptSession, loading, user, error]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

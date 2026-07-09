@@ -12,7 +12,6 @@ const loginSchema = Joi.object({
 });
 
 const registerSchema = Joi.object({
-  username: Joi.string().trim().min(3).max(50).required(),
   email: Joi.string().trim().email().max(100).required(),
   password: Joi.string().min(6).max(255).required(),
   fullName: Joi.string().trim().max(100).allow('', null)
@@ -29,8 +28,37 @@ const changePasswordSchema = Joi.object({
   newPassword: Joi.string().min(6).max(255).required()
 });
 
+const confirmationSchema = Joi.object({
+  username: Joi.string().trim().min(1).max(128).required(),
+  code: Joi.string().trim().min(4).max(12).required()
+});
+
+const challengeSchema = Joi.object({
+  username: Joi.string().trim().min(1).max(128).required(),
+  challenge: Joi.string().valid(
+    'SMS_MFA',
+    'SOFTWARE_TOKEN_MFA',
+    'EMAIL_OTP',
+    'SMS_OTP',
+    'SELECT_MFA_TYPE',
+    'NEW_PASSWORD_REQUIRED'
+  ).required(),
+  session: Joi.string().required(),
+  code: Joi.string().allow('', null),
+  newPassword: Joi.string().min(6).max(255).allow('', null),
+  mfaType: Joi.string().allow('', null)
+});
+
+router.get('/config', authController.config);
 router.post('/login', validate(loginSchema), authController.login);
 router.post('/register', validate(registerSchema), authController.register);
+router.post('/confirm', validate(confirmationSchema), authController.confirmSignUp);
+router.post('/resend-code', validate(Joi.object({ username: Joi.string().trim().required() })), authController.resendCode);
+router.post('/challenge', validate(challengeSchema), authController.respondToChallenge);
+router.get('/social-url', authController.socialUrl);
+router.get('/hosted-url', authController.hostedUrl);
+router.get('/logout-url', authController.logoutUrl);
+router.post('/social-callback', validate(Joi.object({ code: Joi.string().required() })), authController.socialCallback);
 router.get('/me', authenticate, authController.me);
 router.patch('/me', authenticate, validate(updateMeSchema), authController.updateMe);
 router.patch('/me/password', authenticate, validate(changePasswordSchema), authController.changePassword);

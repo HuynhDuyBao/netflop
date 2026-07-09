@@ -1,7 +1,7 @@
 const dotenv = require('dotenv');
 const path = require('path');
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const aliases = {
   DB_DATABASE: process.env.DB_DATABASE || process.env.DB_NAME,
@@ -53,6 +53,12 @@ module.exports = {
     cloudFrontDomain: process.env.AWS_CLOUDFRONT_DOMAIN || '',
     mediaConvertRoleArn: process.env.AWS_MEDIACONVERT_ROLE_ARN || '',
     mediaConvertEndpoint: process.env.AWS_MEDIACONVERT_ENDPOINT || '',
-    mediaConvertWebhookSecret: process.env.AWS_MEDIACONVERT_WEBHOOK_SECRET || ''
+    mediaConvertWebhookSecret: process.env.AWS_MEDIACONVERT_WEBHOOK_SECRET || '',
+    cognitoUserPoolId: process.env.AWS_COGNITO_USER_POOL_ID || '',
+    cognitoClientId: process.env.AWS_COGNITO_CLIENT_ID || '',
+    cognitoClientSecret: process.env.AWS_COGNITO_CLIENT_SECRET || '',
+    cognitoDomain: process.env.AWS_COGNITO_DOMAIN || '',
+    cognitoRedirectUri: process.env.AWS_COGNITO_REDIRECT_URI || 'http://localhost:5173/auth/callback',
+    cognitoLogoutUri: process.env.AWS_COGNITO_LOGOUT_URI || 'http://localhost:5173/'
   }
 };

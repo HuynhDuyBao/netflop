@@ -214,7 +214,10 @@ function Header() {
             <strong>{user.ten_dang_nhap}</strong>
           </Link>
         ) : (
-          <Link className="login-link" to="/login">Đăng nhập</Link>
+          <>
+            <Link className="login-link muted" to="/login">Đăng nhập</Link>
+            <Link className="login-link" to="/register">Đăng ký</Link>
+          </>
         )}
       </div>
     </header>

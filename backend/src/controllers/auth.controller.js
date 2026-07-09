@@ -1,10 +1,10 @@
-const authService = require('../services/auth.service');
 const accountService = require('../services/account.service');
 const HttpError = require('../utils/httpError');
+const cognitoService = require('../services/cognito.service');
 
 async function login(req, res, next) {
   try {
-    const result = await authService.login(req.body.identifier, req.body.password);
+    const result = await cognitoService.login(req.body.identifier, req.body.password);
 
     res.json({
       success: true,
@@ -12,21 +12,91 @@ async function login(req, res, next) {
       data: result
     });
   } catch (error) {
-    next(error);
+    next(cognitoService.translateError(error));
   }
 }
 
 async function register(req, res, next) {
   try {
-    const result = await authService.register(req.body);
+    const result = await cognitoService.register(req.body);
 
     res.status(201).json({
       success: true,
-      message: 'Dang ky thanh cong.',
+      message: result.confirmed ? 'Dang ky thanh cong.' : 'Vui long nhap ma OTP de xac nhan tai khoan.',
       data: result
     });
   } catch (error) {
+    next(cognitoService.translateError(error));
+  }
+}
+
+async function confirmSignUp(req, res, next) {
+  try {
+    const data = await cognitoService.confirmSignUp(req.body);
+    res.json({ success: true, message: 'Xac nhan tai khoan thanh cong.', data });
+  } catch (error) {
+    next(cognitoService.translateError(error));
+  }
+}
+
+async function resendCode(req, res, next) {
+  try {
+    const data = await cognitoService.resendCode(req.body.username);
+    res.json({ success: true, message: 'Da gui lai ma OTP.', data });
+  } catch (error) {
+    next(cognitoService.translateError(error));
+  }
+}
+
+async function respondToChallenge(req, res, next) {
+  try {
+    const data = await cognitoService.respondToChallenge(req.body);
+    res.json({ success: true, message: data.challenge ? 'Can them buoc xac thuc.' : 'Dang nhap thanh cong.', data });
+  } catch (error) {
+    next(cognitoService.translateError(error));
+  }
+}
+
+function config(req, res) {
+  res.json({ success: true, data: cognitoService.publicConfig() });
+}
+
+function socialUrl(req, res, next) {
+  try {
+    const providers = { google: 'Google', facebook: 'Facebook' };
+    const provider = providers[String(req.query.provider || '').toLowerCase()];
+    if (!provider) throw new HttpError(400, 'Nha cung cap social login khong hop le.');
+    const url = cognitoService.hostedUiUrl(provider, String(req.query.state || ''));
+    res.json({ success: true, data: { url } });
+  } catch (error) {
     next(error);
+  }
+}
+
+function hostedUrl(req, res, next) {
+  try {
+    const screen = req.query.screen === 'signup' ? 'signup' : 'login';
+    const url = cognitoService.hostedUiUrl(null, String(req.query.state || ''), screen);
+    res.json({ success: true, data: { url } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+function logoutUrl(req, res, next) {
+  try {
+    res.json({ success: true, data: { url: cognitoService.logoutUrl() } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function socialCallback(req, res, next) {
+  try {
+    const data = await cognitoService.exchangeCode(req.body.code);
+    res.json({ success: true, message: 'Dang nhap thanh cong.', data });
+  } catch (error) {
+    next(cognitoService.translateError(error));
   }
 }
 
@@ -93,10 +163,18 @@ async function myRatings(req, res, next) {
 
 module.exports = {
   changePassword,
+  config,
+  confirmSignUp,
+  hostedUrl,
   login,
+  logoutUrl,
   me,
   myComments,
   myRatings,
   updateMe,
-  register
+  register,
+  resendCode,
+  respondToChallenge,
+  socialCallback,
+  socialUrl
 };

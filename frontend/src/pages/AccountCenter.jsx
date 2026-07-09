@@ -160,7 +160,6 @@ function AccountCenter() {
     setNotice('');
     if (item.id === 'logout') {
       logout();
-      navigate('/');
       return;
     }
     setActiveTab(item.id);
