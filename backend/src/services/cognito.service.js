@@ -101,7 +101,7 @@ async function finishAuthentication(result) {
   return syncAccount(await verifyIdToken(idToken));
 }
 
-async function register({ email, password, fullName }) {
+async function register({ email, password, fullName, birthdate, phoneNumber }) {
   ensureConfigured();
   const input = {
     ClientId: config.cognitoClientId,
@@ -109,6 +109,8 @@ async function register({ email, password, fullName }) {
     Password: password,
     UserAttributes: [
       { Name: 'email', Value: email },
+      { Name: 'birthdate', Value: birthdate },
+      { Name: 'phone_number', Value: phoneNumber },
       ...(fullName ? [{ Name: 'name', Value: fullName }] : [])
     ]
   };
@@ -247,6 +249,16 @@ function publicConfig() {
 }
 
 function translateError(error) {
+  if (
+    error.name === 'InvalidParameterException'
+    && String(error.message || '').includes('USER_PASSWORD_AUTH flow not enabled')
+  ) {
+    return new HttpError(
+      503,
+      'App client Cognito chưa bật đăng nhập bằng mật khẩu (ALLOW_USER_PASSWORD_AUTH).'
+    );
+  }
+
   const messages = {
     CodeMismatchException: 'Ma OTP khong dung.',
     ExpiredCodeException: 'Ma OTP da het han.',

@@ -14,7 +14,13 @@ const loginSchema = Joi.object({
 const registerSchema = Joi.object({
   email: Joi.string().trim().email().max(100).required(),
   password: Joi.string().min(6).max(255).required(),
-  fullName: Joi.string().trim().max(100).allow('', null)
+  fullName: Joi.string().trim().max(100).allow('', null),
+  birthdate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required().messages({
+    'string.pattern.base': 'Ngày sinh phải có định dạng YYYY-MM-DD.'
+  }),
+  phoneNumber: Joi.string().trim().pattern(/^\+[1-9]\d{7,14}$/).required().messages({
+    'string.pattern.base': 'Số điện thoại phải có mã quốc gia, ví dụ +84901234567.'
+  })
 });
 
 const updateMeSchema = Joi.object({

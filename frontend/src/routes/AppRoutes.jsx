@@ -8,7 +8,7 @@ import WatchMovie from '../pages/WatchMovie.jsx';
 import Search from '../pages/Search.jsx';
 import Genre from '../pages/Genre.jsx';
 import Country from '../pages/Country.jsx';
-import CognitoRedirect from '../pages/CognitoRedirect.jsx';
+import AuthPage from '../pages/AuthPage.jsx';
 import AuthCallback from '../pages/AuthCallback.jsx';
 import AccountCenter from '../pages/AccountCenter.jsx';
 import PersonDetail from '../pages/PersonDetail.jsx';
@@ -40,8 +40,8 @@ function AppRoutes() {
         <Route path="search" element={<Search />} />
         <Route path="genre/:slug" element={<Genre />} />
         <Route path="country/:slug" element={<Country />} />
-        <Route path="login" element={<CognitoRedirect screen="login" />} />
-        <Route path="register" element={<CognitoRedirect screen="signup" />} />
+        <Route path="login" element={<AuthPage initialMode="login" />} />
+        <Route path="register" element={<AuthPage initialMode="register" />} />
         <Route path="auth/callback" element={<AuthCallback />} />
         <Route path="favorites" element={<Navigate to="/account?tab=favorites" replace />} />
         <Route path="history" element={<Navigate to="/account?tab=history" replace />} />
