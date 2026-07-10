@@ -233,6 +233,18 @@ async function changePassword(id, currentPassword, nextPassword) {
   );
 }
 
+async function setPassword(id, nextPassword) {
+  const passwordHash = await hashPassword(nextPassword);
+  await pool.execute(
+    `
+      UPDATE tai_khoan
+      SET mat_khau = :passwordHash, ngay_cap_nhat = NOW()
+      WHERE id = :id AND deleted_at IS NULL
+    `,
+    { id, passwordHash }
+  );
+}
+
 async function listUserComments(user, { limit = 50 } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const [rows] = await pool.execute(
@@ -276,6 +288,7 @@ module.exports = {
   listUserComments,
   listUserRatings,
   mapAccount,
+  setPassword,
   updateLastLogin,
   updateAccountRole,
   updateAccountStatus,

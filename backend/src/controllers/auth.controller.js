@@ -133,13 +133,13 @@ async function updateMe(req, res, next) {
 
 async function changePassword(req, res, next) {
   try {
-    await accountService.changePassword(req.user.id, req.body.currentPassword, req.body.newPassword);
+    await cognitoService.changePassword(req.user, req.body.currentPassword, req.body.newPassword);
     res.json({
       success: true,
       message: 'Da cap nhat mat khau.'
     });
   } catch (error) {
-    next(error);
+    next(cognitoService.translateError(error));
   }
 }
 

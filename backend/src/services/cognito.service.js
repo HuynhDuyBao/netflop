@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const {
+  ChangePasswordCommand,
   CognitoIdentityProviderClient,
   ConfirmSignUpCommand,
   InitiateAuthCommand,
@@ -160,6 +161,52 @@ async function login(identifier, password) {
   return finishAuthentication(result);
 }
 
+async function authenticateForPasswordChange(identifier, password) {
+  return client.send(new InitiateAuthCommand({
+    AuthFlow: 'USER_PASSWORD_AUTH',
+    ClientId: config.cognitoClientId,
+    AuthParameters: authParameters(identifier, password)
+  }));
+}
+
+async function changePassword(user, currentPassword, nextPassword) {
+  ensureConfigured();
+  const identifiers = [...new Set([
+    String(user?.email || '').trim(),
+    String(user?.ten_dang_nhap || '').trim()
+  ].filter(Boolean))];
+  let lastError;
+
+  for (const identifier of identifiers) {
+    let authResult;
+    try {
+      authResult = await authenticateForPasswordChange(identifier, currentPassword);
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
+
+    const accessToken = authResult.AuthenticationResult?.AccessToken;
+
+    if (!accessToken) {
+      throw new HttpError(400, 'Vui long dang nhap lai de doi mat khau.');
+    }
+
+    await client.send(new ChangePasswordCommand({
+      PreviousPassword: currentPassword,
+      ProposedPassword: nextPassword,
+      AccessToken: accessToken
+    }));
+    await accountService.setPassword(user.id, nextPassword);
+    return;
+  }
+
+  if (lastError?.name === 'InvalidPasswordException') {
+    throw translateError(lastError);
+  }
+  throw new HttpError(400, 'Mat khau hien tai khong dung.');
+}
+
 async function respondToChallenge({ username, challenge, session, code, newPassword, mfaType }) {
   ensureConfigured();
   const responses = { USERNAME: username };
@@ -273,6 +320,7 @@ function translateError(error) {
 }
 
 module.exports = {
+  changePassword,
   confirmSignUp,
   exchangeCode,
   hostedUiUrl,
