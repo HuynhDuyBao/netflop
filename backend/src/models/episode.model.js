@@ -68,11 +68,11 @@ module.exports = {
     const [rows] = await pool.query('SELECT * FROM tapphim WHERE MaPhim = ?', [movieId]);
     return attachPlaybackAssets(rows);
   },
-  create: async ({ movieId, title, sourceUrl, hlsUrl, cloudFrontUrl, uploadStatus = 'ready', duration }) => {
+  create: async ({ movieId, title, sourceUrl, hlsUrl, cloudFrontUrl, thumbnailUrl, uploadStatus = 'ready', duration }) => {
     const [result] = await pool.execute(
       `
-        INSERT INTO tapphim (MaPhim, TenTap, Link, hls_url, cloudfront_url, upload_status, duration, created_at, updated_at)
-        VALUES (:movieId, :title, :sourceUrl, :hlsUrl, :cloudFrontUrl, :uploadStatus, :duration, NOW(), NOW())
+        INSERT INTO tapphim (MaPhim, TenTap, Link, hls_url, cloudfront_url, thumbnail_url, upload_status, duration, created_at, updated_at)
+        VALUES (:movieId, :title, :sourceUrl, :hlsUrl, :cloudFrontUrl, :thumbnailUrl, :uploadStatus, :duration, NOW(), NOW())
       `,
       {
         movieId,
@@ -80,6 +80,7 @@ module.exports = {
         sourceUrl: sourceUrl || null,
         hlsUrl: hlsUrl || null,
         cloudFrontUrl: cloudFrontUrl || null,
+        thumbnailUrl: thumbnailUrl || null,
         uploadStatus,
         duration: duration || null
       }
@@ -88,7 +89,7 @@ module.exports = {
     const [rows] = await pool.execute('SELECT * FROM tapphim WHERE MaTap = :id LIMIT 1', { id: result.insertId });
     return rows[0];
   },
-  update: async (id, { movieId, title, sourceUrl, hlsUrl, cloudFrontUrl, uploadStatus, duration }) => {
+  update: async (id, { movieId, title, sourceUrl, hlsUrl, cloudFrontUrl, thumbnailUrl, uploadStatus, duration }) => {
     await pool.execute(
       `
         UPDATE tapphim
@@ -97,6 +98,7 @@ module.exports = {
             Link = :sourceUrl,
             hls_url = :hlsUrl,
             cloudfront_url = :cloudFrontUrl,
+            thumbnail_url = :thumbnailUrl,
             upload_status = :uploadStatus,
             duration = :duration,
             updated_at = NOW()
@@ -109,6 +111,7 @@ module.exports = {
         sourceUrl: sourceUrl || null,
         hlsUrl: hlsUrl || null,
         cloudFrontUrl: cloudFrontUrl || null,
+        thumbnailUrl: thumbnailUrl || null,
         uploadStatus,
         duration: duration || null
       }
@@ -150,11 +153,11 @@ module.exports = {
     );
     return result.affectedRows > 0;
   },
-  createUploadEpisode: async ({ movieId, name, sourceUrl, hlsUrl, cloudFrontUrl, uploadStatus, duration }) => {
+  createUploadEpisode: async ({ movieId, name, sourceUrl, hlsUrl, cloudFrontUrl, thumbnailUrl, uploadStatus, duration }) => {
     const [result] = await pool.execute(
       `
-        INSERT INTO tapphim (MaPhim, TenTap, Link, hls_url, cloudfront_url, upload_status, duration, created_at, updated_at)
-        VALUES (:movieId, :name, :sourceUrl, :hlsUrl, :cloudFrontUrl, :uploadStatus, :duration, NOW(), NOW())
+        INSERT INTO tapphim (MaPhim, TenTap, Link, hls_url, cloudfront_url, thumbnail_url, upload_status, duration, created_at, updated_at)
+        VALUES (:movieId, :name, :sourceUrl, :hlsUrl, :cloudFrontUrl, :thumbnailUrl, :uploadStatus, :duration, NOW(), NOW())
       `,
       {
         movieId,
@@ -162,6 +165,7 @@ module.exports = {
         sourceUrl,
         hlsUrl,
         cloudFrontUrl,
+        thumbnailUrl: thumbnailUrl || null,
         uploadStatus,
         duration: duration || null
       }

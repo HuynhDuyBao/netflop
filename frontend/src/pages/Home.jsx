@@ -7,6 +7,16 @@ import { normalizeMovies } from '../utils/normalizeMovie.js';
 const TRAILER_BANNER_DURATION = 10000;
 const IMAGE_BANNER_DURATION = 3000;
 
+const sectionLinks = {
+  latest: '/movies?sort=latest',
+  popular: '/movies?sort=popular'
+};
+
+const railTabs = [
+  { id: 'latest', label: 'Mới cập nhật', title: 'Mới cập nhật' },
+  { id: 'popular', label: 'Xem nhiều', title: 'Xem nhiều' }
+];
+
 function BannerTrailerPlayer({ movie }) {
   const embedUrl = useMemo(() => {
     const params = new URLSearchParams({
@@ -45,6 +55,8 @@ function BannerTrailerPlayer({ movie }) {
 
 function Home() {
   const [movies, setMovies] = useState([]);
+  const [popularMovies, setPopularMovies] = useState([]);
+  const [activeRail, setActiveRail] = useState('latest');
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,8 +64,13 @@ function Home() {
   useEffect(() => {
     async function loadHomeMovies() {
       try {
-        const response = await movieApi.list({ limit: 24, sort: 'latest' });
-        setMovies(normalizeMovies(response.data.data || []));
+        const [latestResponse, popularResponse] = await Promise.all([
+          movieApi.list({ limit: 24, sort: 'latest' }),
+          movieApi.list({ limit: 24, sort: 'popular' })
+        ]);
+
+        setMovies(normalizeMovies(latestResponse.data.data || []));
+        setPopularMovies(normalizeMovies(popularResponse.data.data || []));
       } catch (loadError) {
         setError(loadError.response?.data?.message || 'Không tải được danh sách phim.');
       } finally {
@@ -69,14 +86,8 @@ function Home() {
   const bannerDuration = featuredMovie?.trailerKey
     ? TRAILER_BANNER_DURATION
     : IMAGE_BANNER_DURATION;
-  const popularMovies = useMemo(
-    () => [...movies].sort((a, b) => (b.views || 0) - (a.views || 0)),
-    [movies]
-  );
-  const seriesMovies = useMemo(
-    () => movies.filter((movie) => String(movie.type || '').toLowerCase().includes('series') || String(movie.type || '').toLowerCase().includes('bo')),
-    [movies]
-  );
+  const activeRailConfig = railTabs.find((tab) => tab.id === activeRail) || railTabs[0];
+  const activeRailMovies = activeRail === 'popular' ? popularMovies : movies;
 
   useEffect(() => {
     if (activeBannerIndex >= bannerMovies.length) {
@@ -198,15 +209,29 @@ function Home() {
         )}
       </section>
       <section className="content-rail">
-        <div className="quick-tabs">
-          <button type="button">Mới cập nhật</button>
-          <button type="button">Xem nhiều</button>
-          <button type="button">Phim bộ</button>
-          <button type="button">Phim lẻ</button>
+        <div className="quick-tabs home-rail-tabs" role="tablist" aria-label="Lọc phim trang chủ">
+          {railTabs.map((tab) => (
+            <button
+              className={activeRail === tab.id ? 'active' : ''}
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveRail(tab.id)}
+              aria-pressed={activeRail === tab.id}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <MovieSlider title="Mới cập nhật" movies={movies} />
-        {popularMovies.length > 0 && <MovieSlider title="Xem nhiều" movies={popularMovies} />}
-        {seriesMovies.length > 0 && <MovieSlider title="Phim bộ" movies={seriesMovies} />}
+        {activeRailMovies.length > 0 ? (
+          <MovieSlider
+            key={activeRail}
+            title={activeRailConfig.title}
+            movies={activeRailMovies}
+            seeMoreTo={sectionLinks[activeRailConfig.id]}
+          />
+        ) : (
+          <p className="home-rail-empty">Chưa có phim phù hợp.</p>
+        )}
       </section>
     </main>
   );

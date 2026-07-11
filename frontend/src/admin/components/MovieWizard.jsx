@@ -5,7 +5,6 @@ import { adminApi } from '../../services/adminApi.js';
 import { episodeApi } from '../../services/episodeApi.js';
 import { tmdbApi } from '../../services/tmdbApi.js';
 import { uploadApi } from '../../services/uploadApi.js';
-import UploadVideo from './UploadVideo.jsx';
 
 const statusOptions = [
   { value: 'Äang chiáº¿u', label: 'Đang chiếu' },
@@ -44,6 +43,13 @@ export const emptyMovieWizardForm = {
   genreIds: [],
   cast: [],
   directors: []
+};
+
+const emptyEpisodeForm = {
+  title: '',
+  url: '',
+  thumbnailUrl: '',
+  duration: ''
 };
 
 async function uploadMediaFile(file, category) {
@@ -120,6 +126,9 @@ function MovieWizard({
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [episodeRows, setEpisodeRows] = useState([]);
+  const [episodeForm, setEpisodeForm] = useState(emptyEpisodeForm);
+  const [episodeFile, setEpisodeFile] = useState(null);
+  const [episodeBannerUrl, setEpisodeBannerUrl] = useState('');
   const [activeVideoTab, setActiveVideoTab] = useState('episodes');
   const [selectedEpisodeId, setSelectedEpisodeId] = useState(null);
   const [subtitleForm, setSubtitleForm] = useState({
@@ -150,6 +159,7 @@ function MovieWizard({
     if (!movieId) {
       setEpisodeRows([]);
       setSelectedEpisodeId(null);
+      setEpisodeBannerUrl('');
       return;
     }
 
@@ -165,6 +175,11 @@ function MovieWizard({
       })
       .catch(() => setEpisodeRows([]));
   }, [movieId]);
+
+  useEffect(() => {
+    const selected = episodeRows.find((episode) => Number(episode.MaTap) === Number(selectedEpisodeId));
+    setEpisodeBannerUrl(selected?.thumbnail_url || '');
+  }, [episodeRows, selectedEpisodeId]);
 
   const completedSteps = useMemo(() => {
     const completed = [];
@@ -287,7 +302,80 @@ function MovieWizard({
     }
 
     setError('');
-    setMessage('Chọn file video trong khung Upload AWS để tạo tập phim.');
+    setActiveVideoTab('episodes');
+    setMessage('Nhập tên tập và chọn file hoặc dán URL để thêm tập phim.');
+  }
+
+  function updateEpisodeForm(event) {
+    const { name, value } = event.target;
+    setEpisodeForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function addEpisodeFromForm(event) {
+    event.preventDefault();
+
+    if (!movieId) {
+      setError('Hãy lưu phim trước khi thêm tập phim.');
+      return;
+    }
+
+    if (!episodeForm.title.trim()) {
+      setError('Hãy nhập tên tập phim.');
+      return;
+    }
+
+    if (!episodeFile && !episodeForm.url.trim()) {
+      setError('Hãy chọn file video hoặc dán URL tập phim.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      let createdEpisodeId = null;
+
+      if (episodeFile) {
+        const formData = new FormData();
+        formData.append('movieId', movieId);
+        formData.append('episodeName', episodeForm.title.trim());
+        formData.append('video', episodeFile);
+        if (episodeForm.duration) {
+          formData.append('duration', episodeForm.duration);
+        }
+        if (episodeForm.thumbnailUrl) {
+          formData.append('thumbnailUrl', episodeForm.thumbnailUrl);
+        }
+
+        const response = await uploadApi.uploadVideo(formData);
+        createdEpisodeId = response.data?.data?.episode?.MaTap || null;
+        setMessage('Đã upload file lên S3 và tạo job MediaConvert.');
+      } else {
+        const url = episodeForm.url.trim();
+        const isHls = url.toLowerCase().includes('.m3u8');
+        const response = await episodeApi.create({
+          movieId: Number(movieId),
+          title: episodeForm.title.trim(),
+          sourceUrl: isHls ? '' : url,
+          hlsUrl: isHls ? url : '',
+          cloudFrontUrl: '',
+          thumbnailUrl: episodeForm.thumbnailUrl,
+          uploadStatus: 'ready',
+          duration: episodeForm.duration ? Number(episodeForm.duration) : null
+        });
+        createdEpisodeId = response.data?.data?.MaTap || null;
+        setMessage('Đã thêm tập phim từ URL.');
+      }
+
+      setEpisodeForm(emptyEpisodeForm);
+      setEpisodeFile(null);
+      await reloadEpisodes(createdEpisodeId);
+    } catch (addError) {
+      setError(addError.response?.data?.message || 'Không thêm được tập phim.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function reloadEpisodes(preferredEpisodeId = selectedEpisodeId) {
@@ -298,6 +386,32 @@ function MovieWizard({
     setSelectedEpisodeId(rows.some((episode) => Number(episode.MaTap) === Number(preferredEpisodeId))
       ? preferredEpisodeId
       : rows[0]?.MaTap || null);
+  }
+
+  async function saveSelectedEpisodeBanner() {
+    const selected = episodeRows.find((episode) => Number(episode.MaTap) === Number(selectedEpisodeId));
+    if (!selected) return;
+
+    try {
+      setSaving(true);
+      setError('');
+      await episodeApi.update(selected.MaTap, {
+        movieId: Number(selected.MaPhim || movieId),
+        title: selected.TenTap || selected.title || 'Tập phim',
+        sourceUrl: selected.Link || '',
+        hlsUrl: selected.hls_url || '',
+        cloudFrontUrl: selected.cloudfront_url || '',
+        thumbnailUrl: episodeBannerUrl.trim(),
+        uploadStatus: selected.upload_status || 'ready',
+        duration: selected.duration ? Number(selected.duration) : null
+      });
+      await reloadEpisodes(selected.MaTap);
+      setMessage('Đã cập nhật banner tập phim.');
+    } catch (saveError) {
+      setError(saveError.response?.data?.message || 'Không cập nhật được banner tập phim.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function addWizardSubtitle() {
@@ -448,6 +562,26 @@ function MovieWizard({
 
             {activeVideoTab === 'episodes' && (
               <div className="wizard-episode-table">
+                <form id="wizard-episode-form" className="wizard-media-manager" onSubmit={addEpisodeFromForm}>
+                  <div className="wizard-media-fields">
+                    <input className="input" name="title" value={episodeForm.title} onChange={updateEpisodeForm} placeholder="Tên tập" />
+                    <input className="input" name="url" value={episodeForm.url} onChange={updateEpisodeForm} placeholder="Dán URL video hoặc HLS .m3u8" />
+                    <input className="input" name="duration" value={episodeForm.duration} onChange={updateEpisodeForm} placeholder="Thời lượng giây" />
+                  </div>
+                  <FileUrlInput
+                    label="Banner tập"
+                    name="thumbnailUrl"
+                    value={episodeForm.thumbnailUrl}
+                    onChange={updateEpisodeForm}
+                    onUpload={(file) => uploadMediaFile(file, 'episode-banner')}
+                    accept="image/*"
+                    placeholder="Dán URL banner hoặc chọn ảnh"
+                  />
+                  <div className="wizard-media-fields">
+                    <input className="input" type="file" accept="video/*,.mp4,.mkv,.mov,.avi,.webm,.m4v" onChange={(event) => setEpisodeFile(event.target.files?.[0] || null)} />
+                    <button className="button primary" type="submit" disabled={saving}>{saving ? 'Đang thêm...' : '+ Thêm tập'}</button>
+                  </div>
+                </form>
                 <div><span>Tập</span><span>Tên tập</span><span>Thời lượng</span><span>Trạng thái</span><span></span></div>
                 {episodeRows.map((episode, index) => (
                   <div className={Number(episode.MaTap) === Number(selectedEpisodeId) ? 'selected' : ''} key={episode.MaTap || `${episode.title}-${index}`} onClick={() => episode.MaTap && setSelectedEpisodeId(episode.MaTap)}>
@@ -459,11 +593,47 @@ function MovieWizard({
                   </div>
                 ))}
                 {episodeRows.length === 0 && <p className="admin-empty-state">{movieId ? 'Chưa có tập phim. Bấm “Thêm tập phim” để bắt đầu.' : 'Hãy lưu phim trước để quản lý tập, phụ đề và chất lượng.'}</p>}
+                {selectedEpisode && (
+                  <div className="wizard-episode-banner-editor">
+                    <span>
+                      {selectedEpisode.thumbnail_url ? <img src={selectedEpisode.thumbnail_url} alt="" /> : <i>Banner</i>}
+                    </span>
+                    <FileUrlInput
+                      label={`Banner cho ${selectedEpisode.TenTap || 'tập phim'}`}
+                      name="episodeBannerUrl"
+                      value={episodeBannerUrl}
+                      onChange={(event) => setEpisodeBannerUrl(event.target.value)}
+                      onUpload={(file) => uploadMediaFile(file, 'episode-banner')}
+                      accept="image/*"
+                      placeholder="Dán URL banner hoặc chọn ảnh"
+                    />
+                    <button className="button secondary" type="button" disabled={saving} onClick={saveSelectedEpisodeBanner}>Lưu banner</button>
+                  </div>
+                )}
               </div>
             )}
 
             {activeVideoTab === 'subtitles' && (
               <div className="wizard-media-manager">
+                {!selectedEpisode && (
+                  <>
+                    <div className="wizard-media-fields">
+                      <input className="input" value={subtitleForm.languageCode} onChange={(event) => setSubtitleForm((current) => ({ ...current, languageCode: event.target.value }))} placeholder="vi" />
+                      <input className="input" value={subtitleForm.languageName} onChange={(event) => setSubtitleForm((current) => ({ ...current, languageName: event.target.value }))} placeholder="Tiếng Việt" />
+                    </div>
+                    <FileUrlInput
+                      label="File phụ đề WebVTT"
+                      name="subtitleUrl"
+                      value={subtitleForm.url}
+                      onChange={(event) => setSubtitleForm((current) => ({ ...current, url: event.target.value }))}
+                      onUpload={(file) => uploadMediaFile(file, 'subtitle')}
+                      accept=".vtt,text/vtt"
+                      placeholder="Dán URL phụ đề hoặc chọn file .vtt"
+                    />
+                    <label className="wizard-check"><input type="checkbox" checked={subtitleForm.isDefault} onChange={(event) => setSubtitleForm((current) => ({ ...current, isDefault: event.target.checked }))} /> Đặt làm phụ đề mặc định</label>
+                    <button className="button primary wizard-add-media" type="button" disabled>+ Thêm phụ đề</button>
+                  </>
+                )}
                 {!selectedEpisode ? <p className="admin-empty-state">Chọn hoặc thêm một tập phim trước.</p> : (
                   <>
                     <div className="wizard-media-fields">
@@ -486,21 +656,12 @@ function MovieWizard({
 
           </section>
           <aside className="wizard-panel">
-            <h2>Upload tập phim</h2>
+            <h2>Trailer</h2>
             <FileUrlInput label="Trailer URL" name="link" value={form.link} onChange={updateField} onUpload={(file) => uploadMediaFile(file, 'trailer')} accept="video/*" placeholder="Dán URL trailer hoặc chọn tệp" />
             <label>YouTube key<input className="input" name="trailerKey" value={form.trailerKey} onChange={updateField} /></label>
-            {movieId ? (
-              <UploadVideo
-                defaultMovieId={movieId}
-                lockMovieId
-                onUploaded={(data) => reloadEpisodes(data?.episode?.MaTap)}
-              />
-            ) : (
-              <p className="admin-empty-state">Lưu phim trước, sau đó upload file tập phim lên AWS.</p>
-            )}
             <div className="wizard-stream-note">
               <strong>Adaptive bitrate tự động</strong>
-              <span>File tập phim được upload vào S3 input, MediaConvert tự xuất HLS 360p, 480p, 720p, 1080p sang S3 output để website phát từ CloudFront.</span>
+              <span>Trong tab Tập phim, chọn file để upload S3/MediaConvert hoặc dán URL HLS/video có sẵn.</span>
             </div>
           </aside>
         </div>

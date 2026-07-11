@@ -679,7 +679,17 @@ function VideoPlayer({
         Your browser does not support video playback.
       </video>
 
-      <button className="video-center-play" type="button" onClick={togglePlay} aria-label={isPlaying ? 'Tạm dừng' : 'Phát'} title={isPlaying ? 'Tạm dừng' : 'Phát'}>
+      <button
+        className="video-center-play"
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          togglePlay();
+        }}
+        aria-label={isPlaying ? 'Tạm dừng' : 'Phát'}
+        title={isPlaying ? 'Tạm dừng' : 'Phát'}
+      >
         <PlayerIcon name={isPlaying ? 'pause' : 'play'} />
       </button>
 

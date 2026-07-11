@@ -25,6 +25,15 @@ function formatWatchTime(value) {
     : `${minutes}:${remainingSeconds}`;
 }
 
+function formatEpisodeTitle(title, index) {
+  const value = String(title || '').trim();
+  if (!value || /^\d+$/.test(value)) {
+    return `Tập ${index + 1}`;
+  }
+
+  return value.replace(/^tập/i, 'Tập');
+}
+
 function stars(value) {
   const score = Math.max(0, Math.min(5, Math.round(Number(value || 0) / 2)));
   return Array.from({ length: 5 }, (_, index) => (
@@ -95,15 +104,16 @@ function WatchMovie() {
         const [detailResponse, episodesResponse, relatedResponse, commentsResponse, historyResponse] = await Promise.all([
           movieApi.detail(id),
           movieApi.episodes(id),
-          movieApi.list({ limit: 10, sort: 'popular' }),
+          movieApi.list({ limit: 18, sort: 'popular' }),
           movieApi.comments(id, { limit: 20 }),
           user ? movieApi.history({ limit: 100 }) : Promise.resolve({ data: { data: [] } })
         ]);
         const nextMovie = normalizeMovie(detailResponse.data.data);
         const nextEpisodes = (episodesResponse.data.data || []).map((episode, index) => ({
           id: episode.MaTap,
-          title: episode.TenTap || `Tập ${index + 1}`,
+          title: formatEpisodeTitle(episode.TenTap, index),
           sourceUrl: episode.cloudfront_url || episode.hls_url || episode.Link,
+          thumbnailUrl: episode.thumbnail_url || '',
           duration: episode.duration,
           subtitles: (episode.subtitles || []).map((subtitle) => ({
             id: subtitle.MaPhuDe,
@@ -153,6 +163,8 @@ function WatchMovie() {
   const episodeTitle = selectedEpisode?.title || 'Full HD';
   const selectedEpisodeIndex = episodes.findIndex((episode) => episode.id === selectedEpisode?.id);
   const hasNextEpisode = selectedEpisodeIndex >= 0 && selectedEpisodeIndex < episodes.length - 1;
+  const episodeItems = episodes.length ? episodes : [{ id: 'full', title: 'Full HD' }];
+  const suggestionMovies = relatedMovies.slice(0, 12);
   const genreText = movie?.genres?.map((genre) => genre.name).join(', ') || 'Đang cập nhật';
   const castText = movie?.cast?.slice(0, 6).map((person) => person.name).join(', ') || 'Đang cập nhật';
   const directorText = movie?.directors?.slice(0, 3).map((person) => person.name).join(', ') || 'Đang cập nhật';
@@ -442,32 +454,47 @@ function WatchMovie() {
           <h2>{episodeTitle}</h2>
           <p className="watch-description">{movie.description || 'Nội dung phim đang được cập nhật.'}</p>
 
-          <div className="watch-episodes-heading">
-            <h2>Danh sách tập</h2>
-            <span>{episodes.length || 1}/{episodes.length || 1} tập</span>
-          </div>
-          <div className="watch-episode-row">
-            {(episodes.length ? episodes : [{ id: 'full', title: 'Full HD' }]).map((episode, index) => (
-              <button
-                className={episode.id === selectedEpisode?.id ? 'active' : ''}
-                key={episode.id}
-                type="button"
-                onClick={() => {
-                  persistWatchProgress(latestProgressRef.current, true);
-                  setSelectedEpisodeId(episode.id);
-                  setPlayerStartTime(0);
-                  setResumePromptOpen(false);
-                  latestProgressRef.current = { currentTime: 0, duration: 0 };
-                  setSearchParams({ episode: String(episode.id) });
-                }}
-              >
-                <span style={{ backgroundImage: movie.banner ? `url(${movie.banner})` : undefined }}>
-                  {index + 1}
-                </span>
-                <strong>{episode.title}</strong>
-              </button>
-            ))}
-          </div>
+          <section className="watch-episode-panel" aria-labelledby="watch-episodes-title">
+            <div className="watch-episodes-heading">
+              <div>
+                <span className="watch-section-kicker">Tập phim</span>
+                <h2 id="watch-episodes-title">Danh sách tập</h2>
+              </div>
+              <span className="watch-episode-count">
+                {episodes.length ? `${Math.max(selectedEpisodeIndex + 1, 1)}/${episodes.length}` : '1/1'} tập
+              </span>
+            </div>
+            <div className="watch-episode-row">
+              {episodeItems.map((episode, index) => {
+                const isActive = episode.id === selectedEpisode?.id || (!selectedEpisode && index === 0);
+                const episodeImage = episode.thumbnailUrl || movie.banner || movie.poster || '';
+
+                return (
+                  <button
+                    className={isActive ? 'watch-episode-card active' : 'watch-episode-card'}
+                    key={episode.id}
+                    type="button"
+                    aria-label={`Xem ${episode.title}`}
+                    onClick={() => {
+                      persistWatchProgress(latestProgressRef.current, true);
+                      setSelectedEpisodeId(episode.id);
+                      setPlayerStartTime(0);
+                      setResumePromptOpen(false);
+                      latestProgressRef.current = { currentTime: 0, duration: 0 };
+                      setSearchParams({ episode: String(episode.id) });
+                    }}
+                  >
+                    <span className="watch-episode-thumb">
+                      {episodeImage && <img src={episodeImage} alt="" loading="lazy" />}
+                      <small>Tập {index + 1}</small>
+                      <i aria-hidden="true">▶</i>
+                    </span>
+                    <em>{episode.duration ? `${episode.duration} giây` : isActive ? 'Đang xem' : 'Sẵn sàng phát'}</em>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </div>
 
         <aside className="watch-side-info">
@@ -509,22 +536,30 @@ function WatchMovie() {
       </section>
 
       <section className="watch-netflop-section">
-        <div className="watch-section-heading">
-          <h2>Phim liên quan</h2>
-          <Link to="/movies">Xem thêm</Link>
-        </div>
-        <div className="watch-related-row">
-          {relatedMovies.slice(0, 6).map((item) => (
-            <Link className="watch-related-card" key={item.id} to={`/movies/${item.id}`}>
-              <span className="watch-related-banner">
-                {item.banner || item.poster ? <img src={item.banner || item.poster} alt={item.name} /> : <i>{item.name?.slice(0, 1)}</i>}
-                <small>{item.quality || 'HD'}</small>
-              </span>
-              <strong>{item.name}</strong>
-              <span className="watch-related-meta">{item.year || 'N/A'} · {item.status || 'Đang chiếu'}</span>
-            </Link>
-          ))}
-        </div>
+        {suggestionMovies.length > 0 && (
+          <section className="watch-suggestion-section" aria-labelledby="watch-suggestion-title">
+            <div className="watch-section-heading">
+              <div>
+                <span className="watch-section-kicker">Gợi ý</span>
+                <h2 id="watch-suggestion-title">Gợi ý cho bạn</h2>
+              </div>
+              <Link to="/movies?sort=popular">Xem thêm</Link>
+            </div>
+            <div className="watch-suggestion-row">
+              {suggestionMovies.map((item) => (
+                <Link className="watch-suggestion-card" key={item.id} to={`/movies/${item.id}`}>
+                  <span className="watch-suggestion-poster">
+                    {item.banner || item.poster ? <img src={item.banner || item.poster} alt={item.name} /> : <i>{item.name?.slice(0, 1)}</i>}
+                    <small>{item.quality || 'HD'}</small>
+                    <b aria-hidden="true">▶</b>
+                  </span>
+                  <strong>{item.name}</strong>
+                  <em>{item.year || 'N/A'} · {Number(item.rating || 0).toFixed(1)} · {item.type || 'Phim'}</em>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {movie.cast.length > 0 && (
           <section className="watch-cast-section" aria-labelledby="watch-cast-title">

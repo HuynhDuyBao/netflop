@@ -13,6 +13,7 @@ const episodeSchema = Joi.object({
   sourceUrl: Joi.string().trim().max(700).allow('', null),
   hlsUrl: Joi.string().trim().max(700).allow('', null),
   cloudFrontUrl: Joi.string().trim().max(700).allow('', null),
+  thumbnailUrl: Joi.string().trim().max(700).allow('', null),
   uploadStatus: Joi.string().trim().max(50).default('ready'),
   duration: Joi.number().integer().min(0).allow(null)
 });

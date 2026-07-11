@@ -27,6 +27,12 @@ const allowedMedia = {
     extensions: ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'],
     maxSize: 16 * 1024 * 1024
   },
+  'episode-banner': {
+    dir: 'episode-banners',
+    mime: /^image\//,
+    extensions: ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'],
+    maxSize: 16 * 1024 * 1024
+  },
   trailer: {
     dir: 'trailers',
     mime: /^video\//,
@@ -182,6 +188,7 @@ async function uploadVideo(req, res, next) {
       sourceUrl: uploaded.s3Uri,
       hlsUrl: null,
       cloudFrontUrl: null,
+      thumbnailUrl: req.body.thumbnailUrl || null,
       uploadStatus: 'uploaded',
       duration: req.body.duration
     });

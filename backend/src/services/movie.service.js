@@ -202,7 +202,7 @@ async function getMovieById(id, user = null) {
 
   const [episodes] = await pool.execute(
     `
-      SELECT MaTap, MaPhim, TenTap, Link, hls_url, cloudfront_url, upload_status, duration, created_at, updated_at
+      SELECT MaTap, MaPhim, TenTap, Link, hls_url, cloudfront_url, thumbnail_url, upload_status, duration, created_at, updated_at
       FROM tapphim
       WHERE MaPhim = :id AND (upload_status IS NULL OR upload_status = 'ready')
       ORDER BY MaTap ASC

@@ -60,6 +60,7 @@ export function normalizeMovie(movie) {
       movieId: episode.MaPhim,
       title: episode.TenTap,
       sourceUrl: episode.cloudfront_url || episode.hls_url || episode.Link,
+      thumbnailUrl: episode.thumbnail_url || '',
       duration: episode.duration,
       status: episode.upload_status
     })),

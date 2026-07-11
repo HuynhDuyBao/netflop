@@ -10,6 +10,7 @@ const emptyForm = {
   sourceUrl: '',
   hlsUrl: '',
   cloudFrontUrl: '',
+  thumbnailUrl: '',
   uploadStatus: 'ready',
   duration: ''
 };
@@ -71,6 +72,7 @@ function EpisodeList() {
       sourceUrl: episode.Link || '',
       hlsUrl: episode.hls_url || '',
       cloudFrontUrl: episode.cloudfront_url || '',
+      thumbnailUrl: episode.thumbnail_url || '',
       uploadStatus: episode.upload_status || 'ready',
       duration: episode.duration || ''
     });
@@ -172,6 +174,16 @@ function EpisodeList() {
         <label>Video URL<input className="input" name="sourceUrl" value={form.sourceUrl} onChange={updateField} placeholder="Nguồn gốc hoặc URL thủ công" /></label>
         <label>HLS URL<input className="input" name="hlsUrl" value={form.hlsUrl} onChange={updateField} placeholder="AWS output index.m3u8" /></label>
         <label>CloudFront URL<input className="input" name="cloudFrontUrl" value={form.cloudFrontUrl} onChange={updateField} placeholder="CloudFront index.m3u8" /></label>
+        <FileUrlInput
+          label="Banner tập"
+          name="thumbnailUrl"
+          value={form.thumbnailUrl}
+          onChange={updateField}
+          onUpload={(file) => uploadMediaFile(file, 'episode-banner')}
+          accept="image/*"
+          placeholder="Dán URL banner hoặc chọn ảnh"
+        />
+        {form.thumbnailUrl && <img className="episode-banner-preview" src={form.thumbnailUrl} alt="" />}
         <input className="input" name="duration" value={form.duration} onChange={updateField} placeholder="Thời lượng giây" />
         <select className="input" name="uploadStatus" value={form.uploadStatus} onChange={updateField}>
           <option value="ready">Sẵn sàng</option>
@@ -230,11 +242,18 @@ function EpisodeList() {
 
       <div className="admin-table">
         <div className="admin-table-head episode-grid-admin">
-          <span>ID</span><span>Phim</span><span>Tập</span><span>Nguồn phát</span><span>Trạng thái</span><span></span>
+          <span>ID</span><span>Banner</span><span>Phim</span><span>Tập</span><span>Nguồn phát</span><span>Trạng thái</span><span></span>
         </div>
         {episodes.map((episode) => (
           <div className="admin-table-row episode-grid-admin" key={episode.MaTap}>
             <span>{episode.MaTap}</span>
+            <span>
+              {episode.thumbnail_url ? (
+                <img className="episode-banner-thumb" src={episode.thumbnail_url} alt="" />
+              ) : (
+                <i className="episode-banner-empty">N/A</i>
+              )}
+            </span>
             <span>{episode.TenPhim || `#${episode.MaPhim}`}</span>
             <span>{episode.TenTap}</span>
             <span>{episode.cloudfront_url || episode.hls_url || episode.Link || '-'}</span>
