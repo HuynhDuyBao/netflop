@@ -148,7 +148,9 @@ function MovieList() {
         <>
           {!error && movies.length === 0 && <p>Chưa có phim nào được xuất bản.</p>}
           <div className="movie-grid-list">
-            {movies.map((movie) => <MovieCard key={movie.id} movie={movie} />)}
+            {movies.map((movie, index) => (
+              <MovieCard key={`${movie.id || movie.MaPhim || movie.name || 'movie'}-${index}`} movie={movie} />
+            ))}
           </div>
           {hasMore && (
             <div className="movie-list-actions">

@@ -546,8 +546,8 @@ function WatchMovie() {
               <Link to="/movies?sort=popular">Xem thêm</Link>
             </div>
             <div className="watch-suggestion-row">
-              {suggestionMovies.map((item) => (
-                <Link className="watch-suggestion-card" key={item.id} to={`/movies/${item.id}`}>
+              {suggestionMovies.map((item, index) => (
+                <Link className="watch-suggestion-card" key={`${item.id || item.MaPhim || item.name || 'suggestion'}-${index}`} to={`/movies/${item.id}`}>
                   <span className="watch-suggestion-poster">
                     {item.banner || item.poster ? <img src={item.banner || item.poster} alt={item.name} /> : <i>{item.name?.slice(0, 1)}</i>}
                     <small>{item.quality || 'HD'}</small>

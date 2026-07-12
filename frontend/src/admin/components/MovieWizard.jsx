@@ -7,16 +7,16 @@ import { tmdbApi } from '../../services/tmdbApi.js';
 import { uploadApi } from '../../services/uploadApi.js';
 
 const statusOptions = [
-  { value: 'Äang chiáº¿u', label: 'Đang chiếu' },
-  { value: 'Sáº¯p chiáº¿u', label: 'Sắp chiếu' },
-  { value: 'ÄÃ£ káº¿t thÃºc', label: 'Đã kết thúc' },
-  { value: 'Táº¡m dá»«ng', label: 'Tạm dừng' },
-  { value: 'ÄÃ£ há»§y', label: 'Đã hủy' }
+  { value: 'Đang chiếu', label: 'Đang chiếu' },
+  { value: 'Sắp chiếu', label: 'Sắp chiếu' },
+  { value: 'Đã kết thúc', label: 'Đã kết thúc' },
+  { value: 'Tạm dừng', label: 'Tạm dừng' },
+  { value: 'Đã hủy', label: 'Đã hủy' }
 ];
 
 const typeOptions = [
-  { value: 'Láº»', label: 'Lẻ' },
-  { value: 'Bá»™', label: 'Bộ' }
+  { value: 'Lẻ', label: 'Lẻ' },
+  { value: 'Bộ', label: 'Bộ' }
 ];
 
 export const emptyMovieWizardForm = {
@@ -30,8 +30,8 @@ export const emptyMovieWizardForm = {
   year: '',
   rating: 0,
   views: 0,
-  status: 'Äang chiáº¿u',
-  type: 'Láº»',
+  status: 'Đang chiếu',
+  type: 'Lẻ',
   poster: '',
   banner: '',
   link: '',

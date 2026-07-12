@@ -129,8 +129,10 @@ function AccountCenter() {
     loadAccountData();
   }, []);
 
-  const fullName = profileDraft.fullName || user?.ho_ten || user?.ten_dang_nhap || 'Người dùng Netflop';
-  const username = user?.ten_dang_nhap || 'user';
+  const accountCode = user?.ten_dang_nhap || 'user';
+  const loginName = user?.email || accountCode;
+  const fullName = profileDraft.fullName || user?.ho_ten || loginName || 'Người dùng Netflop';
+  const username = loginName;
   const continueMovies = useMemo(
     () => historyMovies
       .filter((movie) => Number(movie.watchedSeconds || 0) >= 5)
@@ -242,7 +244,8 @@ function AccountCenter() {
               <p>Hồ sơ cá nhân</p>
               <h2>{fullName}</h2>
               <dl>
-                <div><dt>Tên đăng nhập</dt><dd>{username}</dd></div>
+                <div><dt>Tên đăng nhập</dt><dd>{loginName}</dd></div>
+                <div><dt>Mã tài khoản</dt><dd>{accountCode}</dd></div>
                 <div><dt>Email</dt><dd>{profileDraft.email || 'Đang cập nhật'}</dd></div>
                 <div><dt>Ngày tham gia</dt><dd>{formatDate(user?.ngay_tao)}</dd></div>
                 <div><dt>Vai trò</dt><dd>{user?.vai_tro || 'user'}</dd></div>
@@ -261,8 +264,8 @@ function AccountCenter() {
         <section className="account-section">
           <header><h2>Tiếp tục xem</h2><span>{continueMovies.length} phim</span></header>
           <div className="continue-grid">
-            {continueMovies.map((movie) => (
-              <article className="continue-card" key={movie.id}>
+            {continueMovies.map((movie, index) => (
+              <article className="continue-card" key={`${movie.id || movie.MaPhim || movie.name || 'continue'}-${index}`}>
                 <MiniPoster movie={movie} />
                 <div>
                   <strong>{movie.name}</strong>
@@ -306,8 +309,8 @@ function AccountCenter() {
         <section className="account-section">
           <header><h2>Phim yêu thích</h2><span>{favoriteMovies.length} phim</span></header>
           <div className="account-favorite-grid">
-            {favoriteMovies.slice(0, 8).map((movie) => (
-              <article className="favorite-account-card" key={movie.id}>
+            {favoriteMovies.slice(0, 8).map((movie, index) => (
+              <article className="favorite-account-card" key={`${movie.id || movie.MaPhim || movie.name || 'favorite'}-${index}`}>
                 <MiniPoster movie={movie} />
                 <div>
                   <strong>{movie.name}</strong>

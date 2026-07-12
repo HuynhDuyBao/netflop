@@ -9,8 +9,6 @@ const initialLogin = { identifier: '', password: '' };
 const initialRegister = {
   fullName: '',
   email: '',
-  birthdate: '',
-  phoneNumber: '',
   password: '',
   confirmPassword: '',
   terms: false
@@ -30,10 +28,6 @@ function UserIcon() {
 
 function GoogleIcon() {
   return <span className="auth-google-icon" aria-hidden="true">G</span>;
-}
-
-function AwsIcon() {
-  return <span className="auth-aws-icon" aria-hidden="true">aws</span>;
 }
 
 function AuthPage({ initialMode = 'login' }) {
@@ -109,8 +103,6 @@ function AuthPage({ initialMode = 'login' }) {
       const result = await register({
         fullName: registerDraft.fullName,
         email: registerDraft.email,
-        birthdate: registerDraft.birthdate,
-        phoneNumber: registerDraft.phoneNumber,
         password: registerDraft.password
       });
       if (result.confirmed) {
@@ -120,6 +112,7 @@ function AuthPage({ initialMode = 'login' }) {
       } else {
         setPendingConfirmation({
           username: result.username || registerDraft.email,
+          loginIdentifier: result.email || registerDraft.email,
           password: registerDraft.password,
           destination: result.destination
         });
@@ -139,12 +132,26 @@ function AuthPage({ initialMode = 'login' }) {
     setBusy('verify');
     try {
       if (pendingConfirmation) {
-        await authApi.confirm({ username: pendingConfirmation.username, code: verificationValue });
-        const loggedInUser = await login({
-          identifier: pendingConfirmation.username,
-          password: pendingConfirmation.password
+        await authApi.confirm({
+          username: pendingConfirmation.username,
+          code: verificationValue.replace(/\s/g, '')
         });
-        navigate(loggedInUser?.vai_tro === 'admin' ? '/admin' : returnTo, { replace: true });
+        try {
+          const loggedInUser = await login({
+            identifier: pendingConfirmation.loginIdentifier || pendingConfirmation.username,
+            password: pendingConfirmation.password
+          });
+          navigate(loggedInUser?.vai_tro === 'admin' ? '/admin' : returnTo, { replace: true });
+        } catch (loginError) {
+          setPendingConfirmation(null);
+          setVerificationValue('');
+          setLoginDraft({
+            identifier: pendingConfirmation.loginIdentifier || '',
+            password: ''
+          });
+          setMessage('Tai khoan da xac nhan. Vui long dang nhap lai.');
+          setError(loginError.response?.data?.message || '');
+        }
       } else if (pendingChallenge) {
         const isNewPassword = pendingChallenge.challenge === 'NEW_PASSWORD_REQUIRED';
         const isMfaSelection = pendingChallenge.challenge === 'SELECT_MFA_TYPE';
@@ -184,16 +191,15 @@ function AuthPage({ initialMode = 'login' }) {
     }
   }
 
-  async function startHostedLogin(provider) {
-    setBusy(provider || 'aws');
+  async function startGoogleLogin() {
+    setBusy('google');
     setError('');
     try {
       const state = crypto.randomUUID();
-      sessionStorage.setItem('cognitoOAuthState', state);
-      sessionStorage.setItem('cognitoReturnTo', returnTo);
-      const response = provider
-        ? await authApi.socialUrl({ provider, state })
-        : await authApi.hostedUrl({ screen: initialMode === 'register' ? 'signup' : 'login', state });
+      sessionStorage.setItem('oauthState', state);
+      sessionStorage.setItem('oauthReturnTo', returnTo);
+      sessionStorage.setItem('oauthProvider', 'google');
+      const response = await authApi.googleUrl({ state });
       window.location.assign(response.data.data.url);
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể mở đăng nhập liên kết.');
@@ -250,8 +256,7 @@ function AuthPage({ initialMode = 'login' }) {
           </form>
           <p className="auth-or">Hoặc đăng nhập với:</p>
           <div className="auth-social-stack">
-            <button disabled={Boolean(busy)} onClick={() => startHostedLogin('google')} type="button"><GoogleIcon />Đăng nhập với Google</button>
-            <button className="auth-aws-button" disabled={Boolean(busy)} onClick={() => startHostedLogin()} type="button"><AwsIcon />Đăng nhập với AWS</button>
+            <button disabled={Boolean(busy)} onClick={startGoogleLogin} type="button"><GoogleIcon />Đăng nhập với Google</button>
           </div>
           <p className="auth-switch">Chưa có tài khoản? <Link to="/register">Đăng ký</Link></p>
         </div>}
@@ -265,14 +270,11 @@ function AuthPage({ initialMode = 'login' }) {
           <form onSubmit={submitRegister}>
             <label className="auth-field"><UserIcon /><input autoComplete="name" name="fullName" onChange={updateDraft(setRegisterDraft)} placeholder="Họ và tên" required value={registerDraft.fullName} /></label>
             <label className="auth-field"><MailIcon /><input autoComplete="email" name="email" onChange={updateDraft(setRegisterDraft)} placeholder="Email" required type="email" value={registerDraft.email} /></label>
-            <label className="auth-field"><UserIcon /><input autoComplete="bday" aria-label="Ngày sinh" name="birthdate" onChange={updateDraft(setRegisterDraft)} required type="date" value={registerDraft.birthdate} /></label>
-            <label className="auth-field"><MailIcon /><input autoComplete="tel" name="phoneNumber" onChange={updateDraft(setRegisterDraft)} pattern="\+[1-9][0-9]{7,14}" placeholder="Số điện thoại, ví dụ +84901234567" required type="tel" value={registerDraft.phoneNumber} /></label>
             <label className="auth-field"><LockIcon /><input autoComplete="new-password" minLength="6" name="password" onChange={updateDraft(setRegisterDraft)} placeholder="Mật khẩu" required type="password" value={registerDraft.password} /></label>
             <label className="auth-field"><LockIcon /><input autoComplete="new-password" minLength="6" name="confirmPassword" onChange={updateDraft(setRegisterDraft)} placeholder="Xác nhận mật khẩu" required type="password" value={registerDraft.confirmPassword} /></label>
             <p className="auth-or">Hoặc đăng ký với:</p>
             <div className="auth-social-row">
-              <button disabled={Boolean(busy)} onClick={() => startHostedLogin('google')} type="button"><GoogleIcon />Google</button>
-              <button className="auth-aws-button" disabled={Boolean(busy)} onClick={() => startHostedLogin()} type="button"><AwsIcon />AWS</button>
+              <button disabled={Boolean(busy)} onClick={startGoogleLogin} type="button"><GoogleIcon />Google</button>
             </div>
             <button className="auth-primary" disabled={Boolean(busy)} type="submit">
               {busy === 'register' ? 'Đang tạo tài khoản...' : 'Đăng ký'}
@@ -294,7 +296,7 @@ function AuthPage({ initialMode = 'login' }) {
             <span className="auth-modal-mark">✓</span>
             <h2>{verificationTitle}</h2>
             <p>{message || 'Hoàn tất bước bảo mật để tiếp tục.'}</p>
-            <label>{verificationLabel}<input autoFocus minLength="4" onChange={(event) => setVerificationValue(event.target.value)} required type={pendingChallenge?.challenge === 'NEW_PASSWORD_REQUIRED' ? 'password' : 'text'} value={verificationValue} /></label>
+            <label>{verificationLabel}<input autoComplete="one-time-code" autoFocus inputMode="numeric" minLength="4" onChange={(event) => setVerificationValue(event.target.value.trim())} required type={pendingChallenge?.challenge === 'NEW_PASSWORD_REQUIRED' ? 'password' : 'text'} value={verificationValue} /></label>
             {error && <p className="auth-modal-error">{error}</p>}
             <button className="auth-primary" disabled={Boolean(busy)} type="submit">{busy === 'verify' ? 'Đang xác nhận...' : 'Xác nhận'}</button>
             {pendingConfirmation && <button className="auth-resend" disabled={Boolean(busy)} onClick={resendCode} type="button">Gửi lại mã</button>}

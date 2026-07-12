@@ -186,10 +186,10 @@ function Header() {
             <div className="search-popover" role="listbox">
               {loading && <div className="search-state">Đang tìm...</div>}
               {!loading && error && <div className="search-state">{error}</div>}
-              {!loading && !error && movies.map((movie) => (
+              {!loading && !error && movies.map((movie, index) => (
                 <Link
                   className="search-result"
-                  key={movie.id}
+                  key={`${movie.id || movie.MaPhim || movie.name || 'search'}-${index}`}
                   to={`/movies/${movie.id}`}
                   onClick={closeSearch}
                   role="option"

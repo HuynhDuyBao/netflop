@@ -178,7 +178,7 @@ function Home() {
             {bannerMovies.slice(0, 6).map((movie, index) => (
               <button
                 className={index === activeBannerIndex ? 'active' : ''}
-                key={movie.id}
+                key={`${movie.id || movie.MaPhim || movie.name || 'banner'}-${index}`}
                 type="button"
                 onClick={() => setActiveBannerIndex(index)}
                 aria-label={`Chuyển đến ${movie.name}`}
@@ -197,7 +197,7 @@ function Home() {
               {bannerMovies.map((movie, index) => (
                 <button
                   className={index === activeBannerIndex ? 'active' : ''}
-                  key={movie.id}
+                  key={`${movie.id || movie.MaPhim || movie.name || 'banner-dot'}-${index}`}
                   type="button"
                   onClick={() => setActiveBannerIndex(index)}
                   aria-label={`Chuyển đến ${movie.name}`}

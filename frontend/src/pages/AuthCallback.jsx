@@ -14,13 +14,18 @@ function AuthCallback() {
       const code = searchParams.get('code');
       const state = searchParams.get('state');
       const oauthError = searchParams.get('error_description') || searchParams.get('error');
-      const expectedState = sessionStorage.getItem('cognitoOAuthState');
-      const returnTo = sessionStorage.getItem('cognitoReturnTo') || '/';
+      const provider = sessionStorage.getItem('oauthProvider') || 'cognito';
+      const providerLabel = provider === 'google' ? 'Google' : 'Cognito';
+      const expectedState = sessionStorage.getItem('oauthState') || sessionStorage.getItem('cognitoOAuthState');
+      const returnTo = sessionStorage.getItem('oauthReturnTo') || sessionStorage.getItem('cognitoReturnTo') || '/';
+      sessionStorage.removeItem('oauthState');
+      sessionStorage.removeItem('oauthReturnTo');
+      sessionStorage.removeItem('oauthProvider');
       sessionStorage.removeItem('cognitoOAuthState');
       sessionStorage.removeItem('cognitoReturnTo');
 
       if (oauthError) {
-        setError(`Cognito: ${oauthError}`);
+        setError(`${providerLabel}: ${oauthError}`);
         return;
       }
       if (!code || !state || state !== expectedState) {
@@ -28,8 +33,10 @@ function AuthCallback() {
         return;
       }
       try {
-        const response = await authApi.socialCallback({ code });
-        const user = acceptSession(response.data.data);
+        const response = provider === 'google'
+          ? await authApi.googleCallback({ code })
+          : await authApi.socialCallback({ code });
+        const user = acceptSession(response.data.data, provider === 'google' ? 'google' : 'cognito');
         navigate(user.vai_tro === 'admin' ? '/admin' : returnTo, { replace: true });
       } catch (callbackError) {
         setError(callbackError.response?.data?.message || 'Không thể hoàn tất social login.');

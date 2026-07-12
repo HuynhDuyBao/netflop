@@ -15,10 +15,10 @@ const registerSchema = Joi.object({
   email: Joi.string().trim().email().max(100).required(),
   password: Joi.string().min(6).max(255).required(),
   fullName: Joi.string().trim().max(100).allow('', null),
-  birthdate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required().messages({
+  birthdate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).allow('', null).messages({
     'string.pattern.base': 'Ngày sinh phải có định dạng YYYY-MM-DD.'
   }),
-  phoneNumber: Joi.string().trim().pattern(/^\+[1-9]\d{7,14}$/).required().messages({
+  phoneNumber: Joi.string().trim().pattern(/^\+[1-9]\d{7,14}$/).allow('', null).messages({
     'string.pattern.base': 'Số điện thoại phải có mã quốc gia, ví dụ +84901234567.'
   })
 });
@@ -62,9 +62,11 @@ router.post('/confirm', validate(confirmationSchema), authController.confirmSign
 router.post('/resend-code', validate(Joi.object({ username: Joi.string().trim().required() })), authController.resendCode);
 router.post('/challenge', validate(challengeSchema), authController.respondToChallenge);
 router.get('/social-url', authController.socialUrl);
+router.get('/google-url', authController.googleUrl);
 router.get('/hosted-url', authController.hostedUrl);
 router.get('/logout-url', authController.logoutUrl);
 router.post('/social-callback', validate(Joi.object({ code: Joi.string().required() })), authController.socialCallback);
+router.post('/google-callback', validate(Joi.object({ code: Joi.string().required() })), authController.googleCallback);
 router.get('/me', authenticate, authController.me);
 router.patch('/me', authenticate, validate(updateMeSchema), authController.updateMe);
 router.patch('/me/password', authenticate, validate(changePasswordSchema), authController.changePassword);

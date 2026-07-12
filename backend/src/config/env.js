@@ -60,5 +60,10 @@ module.exports = {
     cognitoDomain: process.env.AWS_COGNITO_DOMAIN || '',
     cognitoRedirectUri: process.env.AWS_COGNITO_REDIRECT_URI || 'http://localhost:5173/auth/callback',
     cognitoLogoutUri: process.env.AWS_COGNITO_LOGOUT_URI || 'http://localhost:5173/'
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5173/auth/callback'
   }
 };

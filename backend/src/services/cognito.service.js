@@ -44,6 +44,27 @@ function attributesToObject(attributes = []) {
   return Object.fromEntries(attributes.map(({ Name, Value }) => [Name, Value]));
 }
 
+function signUpUsername(email) {
+  const base = String(email || '')
+    .split('@')[0]
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .slice(0, 32) || 'user';
+  return `${base}_${crypto.randomBytes(4).toString('hex')}`;
+}
+
+async function syncLocalAccountForSignup({ username, email, password, fullName }) {
+  const existingAccount = await accountService.findByEmail(email);
+  if (existingAccount) return existingAccount;
+
+  return accountService.createAccount({
+    username,
+    email,
+    passwordHash: await hashPassword(password),
+    fullName: fullName || '',
+    role: 'user'
+  });
+}
+
 async function syncAccount(claims) {
   const email = String(claims.email || '').trim().toLowerCase();
   if (!email) throw new HttpError(400, 'Cognito khong tra ve dia chi email.');
@@ -104,23 +125,27 @@ async function finishAuthentication(result) {
 
 async function register({ email, password, fullName, birthdate, phoneNumber }) {
   ensureConfigured();
+  const username = signUpUsername(email);
+  const userAttributes = [
+    { Name: 'email', Value: email },
+    ...(fullName ? [{ Name: 'name', Value: fullName }] : []),
+    ...(birthdate ? [{ Name: 'birthdate', Value: birthdate }] : []),
+    ...(phoneNumber ? [{ Name: 'phone_number', Value: phoneNumber }] : [])
+  ];
   const input = {
     ClientId: config.cognitoClientId,
-    Username: email,
+    Username: username,
     Password: password,
-    UserAttributes: [
-      { Name: 'email', Value: email },
-      { Name: 'birthdate', Value: birthdate },
-      { Name: 'phone_number', Value: phoneNumber },
-      ...(fullName ? [{ Name: 'name', Value: fullName }] : [])
-    ]
+    UserAttributes: userAttributes
   };
-  const hash = secretHash(email);
+  const hash = secretHash(username);
   if (hash) input.SecretHash = hash;
   const result = await client.send(new SignUpCommand(input));
+  await syncLocalAccountForSignup({ username, email, password, fullName });
   return {
     confirmed: result.UserConfirmed,
-    username: email,
+    username,
+    email,
     destination: result.CodeDeliveryDetails?.Destination,
     deliveryMedium: result.CodeDeliveryDetails?.DeliveryMedium
   };
@@ -131,7 +156,7 @@ async function confirmSignUp({ username, code }) {
   const input = {
     ClientId: config.cognitoClientId,
     Username: username,
-    ConfirmationCode: code
+    ConfirmationCode: String(code || '').replace(/\s/g, '')
   };
   const hash = secretHash(username);
   if (hash) input.SecretHash = hash;
@@ -298,6 +323,16 @@ function publicConfig() {
 function translateError(error) {
   if (
     error.name === 'InvalidParameterException'
+    && String(error.message || '').includes('Auth flow not enabled')
+  ) {
+    return new HttpError(
+      503,
+      'App client Cognito chua bat auth flow USER_PASSWORD_AUTH.'
+    );
+  }
+
+  if (
+    error.name === 'InvalidParameterException'
     && String(error.message || '').includes('USER_PASSWORD_AUTH flow not enabled')
   ) {
     return new HttpError(
@@ -306,11 +341,35 @@ function translateError(error) {
     );
   }
 
+  if (
+    error.name === 'NotAuthorizedException'
+    && String(error.message || '').includes('SecretHash')
+  ) {
+    return new HttpError(
+      503,
+      'Client secret Cognito khong khop. Hay cap nhat AWS_COGNITO_CLIENT_SECRET va restart backend.'
+    );
+  }
+
+  if (
+    error.name === 'NotAuthorizedException'
+    && String(error.message || '').includes('Unable to verify secret hash')
+  ) {
+    return new HttpError(
+      503,
+      'Client secret Cognito khong dung voi App client hien tai.'
+    );
+  }
+
   const messages = {
+    AliasExistsException: 'Email nay da duoc lien ket voi tai khoan khac.',
     CodeMismatchException: 'Ma OTP khong dung.',
     ExpiredCodeException: 'Ma OTP da het han.',
     InvalidPasswordException: 'Mat khau khong dap ung chinh sach cua Cognito.',
+    LimitExceededException: 'Ban thao tac qua nhieu lan. Vui long thu lai sau.',
     NotAuthorizedException: 'Thong tin dang nhap khong dung.',
+    TooManyFailedAttemptsException: 'Nhap sai qua nhieu lan. Vui long thu lai sau.',
+    TooManyRequestsException: 'Gui yeu cau qua nhieu lan. Vui long thu lai sau.',
     UsernameExistsException: 'Ten dang nhap da ton tai.',
     UserNotConfirmedException: 'Tai khoan chua duoc xac nhan bang OTP.',
     UserNotFoundException: 'Khong tim thay tai khoan.'

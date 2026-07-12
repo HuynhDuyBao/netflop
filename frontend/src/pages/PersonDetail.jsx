@@ -48,8 +48,8 @@ function PersonDetail() {
       <section className="person-credits">
         <h2>Nội dung tham gia</h2>
         <div className="person-movie-row">
-          {movies.map((movie) => (
-            <Link className="person-movie-card" key={movie.id} to={`/movies/${movie.id}`}>
+          {movies.map((movie, index) => (
+            <Link className="person-movie-card" key={`${movie.id || movie.MaPhim || movie.name || 'credit'}-${index}`} to={`/movies/${movie.id}`}>
               <span>
                 {movie.banner || movie.poster ? <img src={movie.banner || movie.poster} alt={movie.name} /> : <i>{movie.name?.slice(0, 1)}</i>}
                 <small>{movie.quality || 'HD'}</small>

@@ -53,6 +53,7 @@ export function AuthProvider({ children }) {
     if (result.challenge) return result;
     const { token, user: loggedInUser } = result;
     localStorage.setItem('accessToken', token);
+    localStorage.setItem('authProvider', 'cognito');
     setUser(loggedInUser);
     return loggedInUser;
   }
@@ -68,29 +69,29 @@ export function AuthProvider({ children }) {
     const result = response.data.data;
     if (result.challenge) return result;
     localStorage.setItem('accessToken', result.token);
+    localStorage.setItem('authProvider', 'cognito');
     setUser(result.user);
     return result;
   }
 
-  const acceptSession = useCallback((result) => {
+  const acceptSession = useCallback((result, provider = 'cognito') => {
     sessionStorage.removeItem('cognitoLogoutPending');
     localStorage.setItem('accessToken', result.token);
+    localStorage.setItem('authProvider', provider);
     setUser(result.user);
     return result.user;
   }, []);
 
   async function logout() {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('authProvider');
+    sessionStorage.removeItem('oauthState');
+    sessionStorage.removeItem('oauthReturnTo');
+    sessionStorage.removeItem('oauthProvider');
     sessionStorage.removeItem('cognitoOAuthState');
     sessionStorage.removeItem('cognitoReturnTo');
-    sessionStorage.setItem('cognitoLogoutPending', '1');
     setUser(null);
-    try {
-      const response = await authApi.logoutUrl();
-      window.location.replace(response.data.data.url);
-    } catch {
-      window.location.replace('/');
-    }
+    window.location.replace('/');
   }
 
   const value = useMemo(

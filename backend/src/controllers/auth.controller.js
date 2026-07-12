@@ -1,6 +1,7 @@
 const accountService = require('../services/account.service');
 const HttpError = require('../utils/httpError');
 const cognitoService = require('../services/cognito.service');
+const googleService = require('../services/google.service');
 
 async function login(req, res, next) {
   try {
@@ -83,6 +84,15 @@ function hostedUrl(req, res, next) {
   }
 }
 
+function googleUrl(req, res, next) {
+  try {
+    const url = googleService.loginUrl(String(req.query.state || ''));
+    res.json({ success: true, data: { url } });
+  } catch (error) {
+    next(error);
+  }
+}
+
 function logoutUrl(req, res, next) {
   try {
     res.json({ success: true, data: { url: cognitoService.logoutUrl() } });
@@ -97,6 +107,15 @@ async function socialCallback(req, res, next) {
     res.json({ success: true, message: 'Dang nhap thanh cong.', data });
   } catch (error) {
     next(cognitoService.translateError(error));
+  }
+}
+
+async function googleCallback(req, res, next) {
+  try {
+    const data = await googleService.exchangeCode(req.body.code);
+    res.json({ success: true, message: 'Dang nhap Google thanh cong.', data });
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -165,6 +184,8 @@ module.exports = {
   changePassword,
   config,
   confirmSignUp,
+  googleCallback,
+  googleUrl,
   hostedUrl,
   login,
   logoutUrl,
