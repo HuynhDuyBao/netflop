@@ -49,6 +49,24 @@ async function resendCode(req, res, next) {
   }
 }
 
+async function forgotPassword(req, res, next) {
+  try {
+    const data = await cognitoService.forgotPassword(req.body.identifier);
+    res.json({ success: true, message: 'Da gui ma dat lai mat khau.', data });
+  } catch (error) {
+    next(cognitoService.translateError(error));
+  }
+}
+
+async function confirmForgotPassword(req, res, next) {
+  try {
+    const data = await cognitoService.confirmForgotPassword(req.body);
+    res.json({ success: true, message: 'Da cap nhat mat khau moi.', data });
+  } catch (error) {
+    next(cognitoService.translateError(error));
+  }
+}
+
 async function respondToChallenge(req, res, next) {
   try {
     const data = await cognitoService.respondToChallenge(req.body);
@@ -183,7 +201,9 @@ async function myRatings(req, res, next) {
 module.exports = {
   changePassword,
   config,
+  confirmForgotPassword,
   confirmSignUp,
+  forgotPassword,
   googleCallback,
   googleUrl,
   hostedUrl,

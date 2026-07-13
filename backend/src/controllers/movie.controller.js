@@ -49,6 +49,21 @@ async function listEpisodes(req, res, next) {
   }
 }
 
+async function listRecommendations(req, res, next) {
+  try {
+    const recommendations = await movieService.listMovieRecommendations(Number(req.params.id), {
+      limit: req.query.limit
+    });
+
+    res.json({
+      success: true,
+      data: recommendations
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function addFavorite(req, res, next) {
   try {
     await movieService.addFavorite(Number(req.params.id), req.user.id);
@@ -219,6 +234,7 @@ module.exports = {
   listFavorites,
   listHistory,
   listMovies,
+  listRecommendations,
   rateMovie,
   recordView,
   removeFavorite,

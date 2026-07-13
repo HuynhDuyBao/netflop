@@ -10,6 +10,8 @@ const commentRoutes = require('./comment.routes');
 const ratingRoutes = require('./rating.routes');
 const uploadRoutes = require('./upload.routes');
 const personRoutes = require('./person.routes');
+const notificationRoutes = require('./notification.routes');
+const contactRoutes = require('./contact.routes');
 const healthController = require('../controllers/health.controller');
 const mediaProxyController = require('../controllers/mediaProxy.controller');
 const movieController = require('../controllers/movie.controller');
@@ -30,6 +32,8 @@ router.use('/comments', commentRoutes);
 router.use('/ratings', ratingRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/people', personRoutes);
+router.use('/contact', contactRoutes);
+router.use('/notifications', notificationRoutes);
 router.get('/me/favorites', authenticate, movieController.listFavorites);
 router.get('/me/history', authenticate, movieController.listHistory);
 

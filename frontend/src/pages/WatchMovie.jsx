@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import VideoPlayer from '../components/VideoPlayer.jsx';
 import { movieApi } from '../services/movieApi.js';
-import { normalizeMovie, normalizeMovies } from '../utils/normalizeMovie.js';
+import { normalizeMovie } from '../utils/normalizeMovie.js';
+import { loadGenreRecommendations } from '../utils/movieRecommendations.js';
 import { useAuth } from '../hooks/useAuth.js';
 
 const VIEW_TRACK_THROTTLE_MS = 3000;
@@ -101,14 +102,14 @@ function WatchMovie() {
       setError('');
 
       try {
-        const [detailResponse, episodesResponse, relatedResponse, commentsResponse, historyResponse] = await Promise.all([
+        const [detailResponse, episodesResponse, commentsResponse, historyResponse] = await Promise.all([
           movieApi.detail(id),
           movieApi.episodes(id),
-          movieApi.list({ limit: 18, sort: 'popular' }),
           movieApi.comments(id, { limit: 20 }),
           user ? movieApi.history({ limit: 100 }) : Promise.resolve({ data: { data: [] } })
         ]);
         const nextMovie = normalizeMovie(detailResponse.data.data);
+        const nextRelatedMovies = await loadGenreRecommendations(nextMovie, id, { limit: 18, sort: 'popular' });
         const nextEpisodes = (episodesResponse.data.data || []).map((episode, index) => ({
           id: episode.MaTap,
           title: formatEpisodeTitle(episode.TenTap, index),
@@ -143,7 +144,7 @@ function WatchMovie() {
         setPlayerStartTime(0);
         latestProgressRef.current = { currentTime: 0, duration: 0 };
         lastSavedRef.current = { at: 0, seconds: -1 };
-        setRelatedMovies(normalizeMovies(relatedResponse.data.data || []).filter((item) => String(item.id) !== String(id)));
+        setRelatedMovies(nextRelatedMovies);
         setComments(commentsResponse.data.data || []);
       } catch (loadError) {
         setError(loadError.response?.data?.message || 'Không tải được phim.');
@@ -165,6 +166,7 @@ function WatchMovie() {
   const hasNextEpisode = selectedEpisodeIndex >= 0 && selectedEpisodeIndex < episodes.length - 1;
   const episodeItems = episodes.length ? episodes : [{ id: 'full', title: 'Full HD' }];
   const suggestionMovies = relatedMovies.slice(0, 12);
+  const recommendationMoreTo = movie?.genres?.[0]?.id ? `/genre/${movie.genres[0].id}` : '/movies?sort=popular';
   const genreText = movie?.genres?.map((genre) => genre.name).join(', ') || 'Đang cập nhật';
   const castText = movie?.cast?.slice(0, 6).map((person) => person.name).join(', ') || 'Đang cập nhật';
   const directorText = movie?.directors?.slice(0, 3).map((person) => person.name).join(', ') || 'Đang cập nhật';
@@ -365,11 +367,6 @@ function WatchMovie() {
   return (
     <main className="watch-page">
       <section className="watch-player-stage">
-        <div className="watch-breadcrumb">
-          <Link to="/">‹ Trang chủ</Link>
-          <span>{movie.name}</span>
-          <span>{episodeTitle}</span>
-        </div>
         {sourceUrl ? (
           <VideoPlayer
             key={selectedEpisode?.id || sourceUrl}
@@ -540,10 +537,10 @@ function WatchMovie() {
           <section className="watch-suggestion-section" aria-labelledby="watch-suggestion-title">
             <div className="watch-section-heading">
               <div>
-                <span className="watch-section-kicker">Gợi ý</span>
-                <h2 id="watch-suggestion-title">Gợi ý cho bạn</h2>
+                <span className="watch-section-kicker">Cùng thể loại</span>
+                <h2 id="watch-suggestion-title">Phim cùng thể loại</h2>
               </div>
-              <Link to="/movies?sort=popular">Xem thêm</Link>
+              <Link to={recommendationMoreTo}>Xem thêm</Link>
             </div>
             <div className="watch-suggestion-row">
               {suggestionMovies.map((item, index) => (

@@ -16,7 +16,12 @@ function PlayerIcon({ name }) {
     pip: <path d="M3 5h18v14H3zM13 12h6v5h-6z" />,
     next: <path d="M6 5v14l9-7zm11 0h2v14h-2z" />,
     captions: <path d="M3 6h18v12H3zM10 10a3 3 0 1 0 0 4m8-4a3 3 0 1 0 0 4" />,
-    settings: <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm0-5v2m0 13v2m8.5-8.5h-2m-13 0h-2m15.1-6.1-1.4 1.4M6.8 17.2l-1.4 1.4m13.2 0-1.4-1.4M6.8 6.8 5.4 5.4" />
+    settings: (
+      <>
+        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z" />
+        <path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.6A8 8 0 0 0 7 6.6l-2.4-1-2 3.4 2 1.5A8.8 8.8 0 0 0 4.5 12c0 .5 0 1 .1 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5l.4 2.6h4l.4-2.6a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.5z" />
+      </>
+    )
   };
 
   return (
@@ -609,6 +614,25 @@ function VideoPlayer({
     setControlsVisible(true);
   }
 
+  useEffect(() => {
+    if (!settingsView) return undefined;
+
+    function closeSettingsOnOutsidePointer(event) {
+      const target = event.target;
+      if (
+        target.closest?.('.video-settings-panel')
+        || target.closest?.('[data-settings-trigger="true"]')
+      ) {
+        return;
+      }
+
+      setSettingsView('');
+    }
+
+    document.addEventListener('pointerdown', closeSettingsOnOutsidePointer, true);
+    return () => document.removeEventListener('pointerdown', closeSettingsOnOutsidePointer, true);
+  }, [settingsView]);
+
   if (!mediaUrl) {
     return (
       <div className="video-player empty-player">
@@ -641,6 +665,19 @@ function VideoPlayer({
   return (
     <div
       className={`video-player-shell${isPlaying ? ' is-playing' : ''}${controlsVisible || !isPlaying || settingsOpen ? ' controls-visible' : ' controls-hidden'}`}
+      onPointerDownCapture={(event) => {
+        if (!settingsOpen) return;
+
+        const target = event.target;
+        if (
+          target.closest?.('.video-settings-panel')
+          || target.closest?.('[data-settings-trigger="true"]')
+        ) {
+          return;
+        }
+
+        setSettingsView('');
+      }}
       onMouseMove={revealControls}
       onPointerMove={revealControls}
       onMouseLeave={() => {
@@ -756,13 +793,14 @@ function VideoPlayer({
           <button
             className={captionsEnabled ? 'active' : ''}
             type="button"
+            data-settings-trigger="true"
             onClick={() => openSettings('captions')}
             aria-label="Phụ đề"
             title="Phụ đề"
           >
             <PlayerIcon name="captions" />
           </button>
-          <button type="button" onClick={() => openSettings('main')} aria-label="Cài đặt" title="Cài đặt">
+          <button type="button" data-settings-trigger="true" onClick={() => openSettings('main')} aria-label="Cài đặt" title="Cài đặt">
             <PlayerIcon name="settings" />
           </button>
           <button type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'} title={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}>

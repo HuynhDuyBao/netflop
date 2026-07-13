@@ -1342,6 +1342,7 @@
 
 .dashboard-segmented {
   display: flex;
+  flex-wrap: wrap;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 8px;
@@ -1349,7 +1350,7 @@
 }
 
 .dashboard-segmented button {
-  min-width: 70px;
+  min-width: 64px;
   border: 0;
   background: transparent;
   color: #dbe3ee;
@@ -1371,6 +1372,41 @@
   padding: 10px 0 8px 42px;
 }
 
+.chart-summary {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 16px;
+  display: grid;
+  gap: 2px;
+  min-width: 150px;
+  padding: 10px 12px;
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  border-radius: 8px;
+  background: rgba(13, 27, 43, 0.86);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--motion-fast) var(--ease-smooth), transform var(--motion-fast) var(--ease-out);
+}
+
+.chart-summary.is-loading {
+  opacity: 0.66;
+  transform: translateY(-2px);
+}
+
+.chart-summary span {
+  color: #aebbd0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-summary strong {
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
 .chart-wrap svg {
   display: block;
   width: 100%;
@@ -1384,6 +1420,7 @@
 
 .chart-area {
   fill: url(#viewFill);
+  transition: opacity var(--motion) var(--ease-smooth);
 }
 
 .chart-line {
@@ -1392,12 +1429,25 @@
   stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: d var(--motion) var(--ease-smooth), opacity var(--motion) var(--ease-smooth);
 }
 
 .chart-dot {
   fill: #8b5cf6;
   stroke: #1b1834;
   stroke-width: 3;
+  transition: cx var(--motion) var(--ease-smooth), cy var(--motion) var(--ease-smooth), stroke var(--motion-fast) var(--ease-smooth);
+}
+
+.chart-hit {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.chart-wrap g:hover .chart-dot,
+.chart-wrap g:focus-within .chart-dot {
+  stroke: #ffffff;
 }
 
 .chart-y-axis {
@@ -1414,17 +1464,23 @@
 
 .chart-x-axis {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
   gap: 10px;
   padding-left: 24px;
   color: #c4cedd;
   font-size: 12px;
 }
 
+.chart-x-axis span {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chart-tooltip {
   position: absolute;
-  top: 68px;
-  right: 190px;
+  z-index: 4;
   display: grid;
   gap: 6px;
   padding: 11px 13px;
@@ -1432,6 +1488,10 @@
   background: rgba(5, 10, 20, 0.92);
   color: #ffffff;
   font-size: 12px;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 14px));
+  white-space: nowrap;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
 }
 
 .chart-tooltip strong {
@@ -2932,4 +2992,351 @@
   .wizard-episode-picker {
     grid-template-columns: 1fr;
   }
+}
+
+.admin-notification-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.28fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-feedback-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-feedback-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(226, 232, 240, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fbff;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.admin-feedback-tabs button.active,
+.admin-feedback-tabs button:hover {
+  border-color: rgba(255, 122, 31, 0.5);
+  background: linear-gradient(135deg, #ff7a1f, #ff302c);
+  color: #ffffff;
+}
+
+.admin-feedback-tabs span {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  color: inherit;
+  font-size: 12px;
+}
+
+.admin-notification-form {
+  align-content: start;
+}
+
+.admin-notification-form h2,
+.admin-notification-list h2 {
+  color: #ffffff;
+  margin: 0;
+}
+
+.admin-notification-form textarea {
+  resize: vertical;
+}
+
+.admin-notification-form .input,
+.admin-notification-form textarea.input {
+  border-color: rgba(255, 43, 85, 0.72);
+  background: #071221;
+  color: #f8fbff;
+  caret-color: #ffffff;
+}
+
+.admin-notification-form .input:hover,
+.admin-notification-form textarea.input:hover {
+  border-color: rgba(255, 83, 111, 0.86);
+  background: #081728;
+}
+
+.admin-notification-form .input:focus,
+.admin-notification-form textarea.input:focus {
+  border-color: #ff2b55;
+  background: #081728;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 43, 85, 0.2), 0 10px 28px rgba(255, 43, 85, 0.12);
+}
+
+.admin-notification-form .input::placeholder,
+.admin-notification-form textarea.input::placeholder {
+  color: #d5deeb;
+  opacity: 0.88;
+}
+
+.admin-notice-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-notice-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(9, 20, 34, 0.58);
+}
+
+.admin-notice-item strong,
+.admin-notice-item p,
+.admin-notice-item small {
+  display: block;
+}
+
+.admin-notice-item strong {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.admin-notice-item p {
+  margin: 6px 0;
+  color: #d8e1ef;
+  line-height: 1.55;
+}
+
+.admin-notice-item small {
+  color: #aab6c7;
+  font-weight: 750;
+}
+
+.admin-notice-item button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(251, 113, 133, 0.28);
+  border-radius: 8px;
+  background: rgba(251, 113, 133, 0.14);
+  color: #fecdd3;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+@media (max-width: 1050px) {
+  .admin-notification-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-notice-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Final readability pass: keep dark admin surfaces consistently legible. */
+.admin-layout,
+.admin-page,
+.admin-page h1,
+.admin-page h2,
+.admin-page h3,
+.admin-page h4,
+.admin-page strong,
+.admin-page b {
+  color: #f8fbff;
+}
+
+.admin-page p,
+.admin-page span,
+.admin-page small,
+.admin-page td,
+.admin-page dd,
+.admin-page li {
+  color: #d8e1ef;
+}
+
+.admin-page label,
+.admin-page dt,
+.admin-kicker,
+.admin-muted,
+.admin-empty-state {
+  color: #d8e1ef;
+}
+
+.admin-page .admin-card,
+.admin-page .wizard-panel,
+.admin-page .summary-box,
+.admin-page .dashboard-panel,
+.admin-page .dashboard-stat-card,
+.admin-page .admin-table,
+.admin-page .admin-row {
+  background: rgba(15, 28, 45, 0.9);
+  color: #f8fbff;
+}
+
+.admin-page .input,
+.admin-page input.input,
+.admin-page textarea,
+.admin-page textarea.input,
+.admin-page select,
+.admin-page select.input,
+.tmdb-search .input,
+.admin-toolbar .input {
+  color-scheme: dark;
+  border-color: rgba(255, 83, 111, 0.78);
+  background: #071221;
+  color: #f8fbff;
+  caret-color: #ffffff;
+}
+
+.admin-page .input:hover,
+.admin-page input.input:hover,
+.admin-page textarea:hover,
+.admin-page textarea.input:hover,
+.admin-page select:hover,
+.admin-page select.input:hover,
+.tmdb-search .input:hover,
+.admin-toolbar .input:hover {
+  border-color: rgba(255, 122, 31, 0.82);
+  background: #0a1829;
+}
+
+.admin-page .input:focus,
+.admin-page input.input:focus,
+.admin-page textarea:focus,
+.admin-page textarea.input:focus,
+.admin-page select:focus,
+.admin-page select.input:focus,
+.tmdb-search .input:focus,
+.admin-toolbar .input:focus {
+  border-color: #ff2b55;
+  background: #081728;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 43, 85, 0.2), 0 10px 28px rgba(255, 43, 85, 0.12);
+}
+
+.admin-page .input::placeholder,
+.admin-page input.input::placeholder,
+.admin-page textarea::placeholder,
+.admin-page textarea.input::placeholder,
+.tmdb-search .input::placeholder,
+.admin-toolbar .input::placeholder {
+  color: #d5deeb;
+  opacity: 0.9;
+}
+
+.admin-page select option,
+.admin-page select.input option {
+  background: #071221;
+  color: #f8fbff;
+}
+
+.admin-page select option:checked,
+.admin-page select.input option:checked {
+  background: #ff2b55;
+  color: #ffffff;
+}
+
+.admin-page .admin-table-head,
+.admin-page .mini-table-head,
+.admin-page .wizard-person-head,
+.admin-page .wizard-episode-table > div:first-child {
+  background: #132238;
+  color: #f8fbff;
+}
+
+.admin-page .admin-table-head > *,
+.admin-page .mini-table-head > *,
+.admin-page .wizard-person-head > *,
+.admin-page .wizard-episode-table > div:first-child > * {
+  color: #f8fbff;
+}
+
+.admin-page .admin-table-row,
+.admin-page .mini-table-row,
+.admin-page .wizard-person-row,
+.admin-page .wizard-episode-table > div:not(:first-child) {
+  background: #0f1c2d;
+  color: #f8fbff;
+}
+
+.admin-page .admin-table-row:nth-child(odd),
+.admin-page .mini-table-row:nth-child(odd) {
+  background: #101f33;
+}
+
+.admin-page .admin-table-row:hover,
+.admin-page .mini-table-row:hover,
+.admin-page .admin-row:hover {
+  background: #18273a;
+  color: #ffffff;
+}
+
+.admin-page .admin-table-row > *,
+.admin-page .mini-table-row > *,
+.admin-page .admin-row > *,
+.admin-page .wizard-person-row > *,
+.admin-page .wizard-episode-table > div:not(:first-child) > * {
+  color: inherit;
+}
+
+.admin-page .button.secondary,
+.admin-page .row-actions button,
+.admin-page .row-actions a,
+.admin-page .status-pill,
+.admin-page .admin-ghost-button,
+.admin-page .date-chip {
+  border-color: rgba(226, 232, 240, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+  color: #f8fbff;
+}
+
+.admin-page .button.secondary:hover,
+.admin-page .row-actions button:hover,
+.admin-page .row-actions a:hover,
+.admin-page .status-pill:hover,
+.admin-page .admin-ghost-button:hover {
+  border-color: rgba(255, 122, 31, 0.48);
+  background: rgba(255, 122, 31, 0.18);
+  color: #ffffff;
+}
+
+.admin-page .button.danger,
+.admin-page .row-actions button:last-child,
+.admin-notice-item button {
+  border-color: rgba(251, 113, 133, 0.34);
+  background: rgba(251, 113, 133, 0.16);
+  color: #fecdd3;
+}
+
+.admin-page .form-error {
+  border: 1px solid rgba(251, 113, 133, 0.38);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecdd3;
+}
+
+.admin-page .admin-message {
+  border-color: rgba(96, 165, 250, 0.32);
+  background: rgba(37, 99, 235, 0.18);
+  color: #dbeafe;
+}
+
+.dash-pill {
+  color: #86efac;
+}
+
+.dash-pill.pending {
+  color: #fde68a;
+}
+
+.dash-pill.danger {
+  color: #fda4af;
 }

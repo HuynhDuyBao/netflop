@@ -1,6 +1,8 @@
 const express = require('express');
 const Joi = require('joi');
 const adminController = require('../controllers/admin.controller');
+const contactController = require('../controllers/contact.controller');
+const notificationController = require('../controllers/notification.controller');
 const validate = require('../middlewares/validate.middleware');
 const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
 
@@ -92,10 +94,28 @@ const nameSchema = Joi.object({
   name: Joi.string().trim().min(1).max(100).required()
 });
 
+const contactStatusSchema = Joi.object({
+  status: Joi.string().valid('new', 'reviewing', 'done').required()
+});
+
+const notificationSchema = Joi.object({
+  title: Joi.string().trim().min(1).max(180).required(),
+  message: Joi.string().trim().min(1).max(2000).required(),
+  type: Joi.string().trim().max(60).default('admin'),
+  link: Joi.string().trim().max(500).allow('', null)
+});
+
 router.get('/dashboard', adminOnly, adminController.dashboard);
 router.get('/users', adminOnly, adminController.listUsers);
 router.patch('/users/:id/role', adminOnly, validate(updateRoleSchema), adminController.updateUserRole);
 router.patch('/users/:id/status', adminOnly, validate(updateStatusSchema), adminController.updateUserStatus);
+
+router.get('/contacts', adminOnly, contactController.listMessages);
+router.patch('/contacts/:id/status', adminOnly, validate(contactStatusSchema), contactController.updateMessageStatus);
+
+router.get('/notifications', adminOnly, notificationController.listPublicNotifications);
+router.post('/notifications', adminOnly, validate(notificationSchema), notificationController.createPublicNotification);
+router.delete('/notifications/:id', adminOnly, notificationController.deletePublicNotification);
 
 router.get('/movies', adminOnly, adminController.listMovies);
 router.post('/movies', adminOnly, validate(movieSchema), adminController.createMovie);

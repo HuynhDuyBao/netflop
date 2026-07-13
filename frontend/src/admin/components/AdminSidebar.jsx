@@ -4,8 +4,7 @@ const navGroups = [
   {
     title: 'Tổng quan',
     items: [
-      { to: '/admin', label: 'Bảng điều khiển', icon: 'D' },
-      { to: '/admin/settings', label: 'Thống kê', icon: 'T' }
+      { to: '/admin', label: 'Bảng điều khiển', icon: 'D' }
     ]
   },
   {
@@ -29,8 +28,9 @@ const navGroups = [
     title: 'Người dùng',
     items: [
       { to: '/admin/users', label: 'Người dùng', icon: 'N' },
-      { to: '/admin/comments', label: 'Bình luận', icon: 'C' },
-      { to: '/admin/ratings', label: 'Đánh giá', icon: 'R' }
+      { to: '/admin/feedback', label: 'Phản hồi', icon: 'F' },
+      { to: '/admin/contacts', label: 'Liên hệ', icon: 'L' },
+      { to: '/admin/notifications', label: 'Thông báo', icon: '!' }
     ]
   },
   {

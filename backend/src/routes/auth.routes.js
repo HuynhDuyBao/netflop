@@ -12,6 +12,9 @@ const loginSchema = Joi.object({
 });
 
 const registerSchema = Joi.object({
+  username: Joi.string().trim().min(3).max(40).pattern(/^[a-zA-Z0-9_.-]+$/).required().messages({
+    'string.pattern.base': 'Ten dang nhap chi duoc chua chu cai, so, dau gach duoi, dau cham hoac dau gach ngang.'
+  }),
   email: Joi.string().trim().email().max(100).required(),
   password: Joi.string().min(6).max(255).required(),
   fullName: Joi.string().trim().max(100).allow('', null),
@@ -39,6 +42,16 @@ const confirmationSchema = Joi.object({
   code: Joi.string().trim().min(4).max(12).required()
 });
 
+const forgotPasswordSchema = Joi.object({
+  identifier: Joi.string().trim().min(3).max(100).required()
+});
+
+const confirmForgotPasswordSchema = Joi.object({
+  identifier: Joi.string().trim().min(3).max(100).required(),
+  code: Joi.string().trim().min(4).max(12).required(),
+  newPassword: Joi.string().min(6).max(255).required()
+});
+
 const challengeSchema = Joi.object({
   username: Joi.string().trim().min(1).max(128).required(),
   challenge: Joi.string().valid(
@@ -60,6 +73,8 @@ router.post('/login', validate(loginSchema), authController.login);
 router.post('/register', validate(registerSchema), authController.register);
 router.post('/confirm', validate(confirmationSchema), authController.confirmSignUp);
 router.post('/resend-code', validate(Joi.object({ username: Joi.string().trim().required() })), authController.resendCode);
+router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/confirm-forgot-password', validate(confirmForgotPasswordSchema), authController.confirmForgotPassword);
 router.post('/challenge', validate(challengeSchema), authController.respondToChallenge);
 router.get('/social-url', authController.socialUrl);
 router.get('/google-url', authController.googleUrl);

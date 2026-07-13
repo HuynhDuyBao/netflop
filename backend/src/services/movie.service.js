@@ -171,6 +171,95 @@ async function listMovies({ page = 1, limit = 20, sort = 'latest', publicOnly = 
   };
 }
 
+async function listMovieRecommendations(id, { limit = 12 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 12, 1), 24);
+  const [movieRows] = await pool.execute(
+    `
+      SELECT MaPhim, PhanLoai, MaQuocGia
+      FROM phim
+      WHERE MaPhim = :id AND ${publicMovieWhere.replaceAll('p.', '')}
+      LIMIT 1
+    `,
+    { id }
+  );
+
+  const currentMovie = movieRows[0];
+  if (!currentMovie) {
+    throw new HttpError(404, 'Khong tim thay phim.');
+  }
+
+  const [sameGenreRows] = await pool.execute(
+    `
+      SELECT ${movieFields},
+        (
+          SELECT COUNT(*)
+          FROM phim_theloai candidate_genres
+          INNER JOIN phim_theloai current_genres
+            ON current_genres.MaTheLoai = candidate_genres.MaTheLoai
+            AND current_genres.MaPhim = :id
+          WHERE candidate_genres.MaPhim = p.MaPhim
+        ) AS SharedGenreCount
+      FROM phim p
+      LEFT JOIN quocgia qg ON qg.MaQuocGia = p.MaQuocGia
+      WHERE p.MaPhim <> :id
+        AND ${publicMovieWhere}
+        AND EXISTS (
+          SELECT 1
+          FROM phim_theloai candidate_genres
+          INNER JOIN phim_theloai current_genres
+            ON current_genres.MaTheLoai = candidate_genres.MaTheLoai
+            AND current_genres.MaPhim = :id
+          WHERE candidate_genres.MaPhim = p.MaPhim
+        )
+      ORDER BY SharedGenreCount DESC, COALESCE(p.LuotXem, 0) DESC, p.MaPhim DESC
+      LIMIT :limit
+    `,
+    { id, limit: safeLimit }
+  );
+
+  if (sameGenreRows.length >= safeLimit) {
+    return sameGenreRows.map(mapMovie);
+  }
+
+  const seenIds = new Set([String(id), ...sameGenreRows.map((movie) => String(movie.MaPhim))]);
+  const fallbackWhere = [publicMovieWhere, 'p.MaPhim <> :id'];
+  const params = { id, limit: safeLimit - sameGenreRows.length };
+
+  if (currentMovie.PhanLoai) {
+    fallbackWhere.push('p.PhanLoai = :type');
+    params.type = currentMovie.PhanLoai;
+  } else if (currentMovie.MaQuocGia) {
+    fallbackWhere.push('p.MaQuocGia = :countryId');
+    params.countryId = currentMovie.MaQuocGia;
+  }
+
+  if (sameGenreRows.length > 0) {
+    fallbackWhere.push(`p.MaPhim NOT IN (${sameGenreRows.map((_, index) => `:seen${index}`).join(', ')})`);
+    sameGenreRows.forEach((movie, index) => {
+      params[`seen${index}`] = movie.MaPhim;
+    });
+  }
+
+  const [fallbackRows] = await pool.execute(
+    `
+      SELECT ${movieFields}
+      FROM phim p
+      LEFT JOIN quocgia qg ON qg.MaQuocGia = p.MaQuocGia
+      WHERE ${fallbackWhere.join(' AND ')}
+      ORDER BY COALESCE(p.LuotXem, 0) DESC, p.MaPhim DESC
+      LIMIT :limit
+    `,
+    params
+  );
+
+  return [...sameGenreRows, ...fallbackRows.filter((movie) => {
+    const movieId = String(movie.MaPhim);
+    if (seenIds.has(movieId)) return false;
+    seenIds.add(movieId);
+    return true;
+  })].slice(0, safeLimit).map(mapMovie);
+}
+
 async function getMovieById(id, user = null) {
   const [rows] = await pool.execute(
     `
@@ -1004,6 +1093,7 @@ module.exports = {
   listEpisodes,
   listFavorites,
   listHistory,
+  listMovieRecommendations,
   listMovies,
   rateMovie,
   recordView,

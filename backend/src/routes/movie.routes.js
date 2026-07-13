@@ -23,6 +23,7 @@ const commentSchema = Joi.object({
 
 router.get('/', movieController.listMovies);
 router.get('/:id', optionalAuthenticate, movieController.getMovie);
+router.get('/:id/recommendations', movieController.listRecommendations);
 router.get('/:id/episodes', movieController.listEpisodes);
 router.get('/:id/comments', movieController.listComments);
 router.post('/:id/comments', authenticate, validate(commentSchema), movieController.createComment);

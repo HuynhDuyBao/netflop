@@ -37,6 +37,8 @@ app.get('/', (req, res) => {
       login: 'POST /api/auth/login',
       me: 'GET /api/auth/me',
       favorites: 'GET /api/me/favorites',
+      contact: 'POST /api/contact',
+      adminContacts: 'GET /api/admin/contacts',
       adminUsers: 'GET /api/admin/users'
     }
   });

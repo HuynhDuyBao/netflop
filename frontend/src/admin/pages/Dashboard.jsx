@@ -13,6 +13,13 @@ const emptyDashboard = {
   system: []
 };
 
+const chartPeriods = [
+  { value: 'day', label: 'Ngày', title: 'Hoạt động xem hôm nay' },
+  { value: 'week', label: 'Tuần', title: 'Hoạt động xem 7 ngày' },
+  { value: 'month', label: 'Tháng', title: 'Hoạt động xem trong tháng' },
+  { value: 'year', label: 'Năm', title: 'Hoạt động xem trong năm' }
+];
+
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('vi-VN');
 }
@@ -57,29 +64,47 @@ function accountStatusLabel(value) {
 
 function Dashboard() {
   const [dashboard, setDashboard] = useState(emptyDashboard);
+  const [chartPeriod, setChartPeriod] = useState('week');
+  const [hoveredChart, setHoveredChart] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
 
   useEffect(() => {
-    adminApi.dashboard()
+    setChartLoading(true);
+    adminApi.dashboard({ period: chartPeriod })
       .then((data) => {
         setDashboard({ ...emptyDashboard, ...data });
         setError('');
       })
       .catch((dashboardError) => setError(dashboardError.response?.data?.message || 'Không tải được dashboard.'))
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => {
+        setLoading(false);
+        setChartLoading(false);
+      });
+  }, [chartPeriod]);
 
-  const chart = dashboard.chart.length ? dashboard.chart : Array.from({ length: 7 }, (_, index) => ({
-    label: `Ngày ${index + 1}`,
+  const activeChartPeriod = chartPeriods.find((period) => period.value === chartPeriod) || chartPeriods[1];
+  const fallbackChartLength = chartPeriod === 'day' ? 24 : chartPeriod === 'year' ? 12 : chartPeriod === 'month' ? 30 : 7;
+  const chart = dashboard.chart.length ? dashboard.chart : Array.from({ length: fallbackChartLength }, (_, index) => ({
+    label: `${index + 1}`,
     views: 0
   }));
   const maxViews = Math.max(...chart.map((item) => Number(item.views || 0)), 1);
-  const chartPath = chart.map((item, index) => {
+  const chartPoints = chart.map((item, index) => {
     const x = 48 + index * (624 / Math.max(chart.length - 1, 1));
     const y = 180 - (Number(item.views || 0) / maxViews) * 140;
-    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
+    return { item, index, x, y };
+  });
+  const chartPath = chartPoints.map(({ index, x, y }) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
+  const chartTotal = chart.reduce((total, item) => total + Number(item.views || 0), 0);
+  const chartSummaryLabel = chartPeriod === 'day'
+    ? 'Hôm nay'
+    : chartPeriod === 'week'
+      ? 'Tổng tuần này'
+      : chartPeriod === 'month'
+        ? 'Tổng tháng này'
+        : 'Tổng năm này';
 
   const metrics = dashboard.metrics;
   const highestMovieViews = useMemo(
@@ -104,29 +129,71 @@ function Dashboard() {
       </div>
 
       <div className="dashboard-main-grid">
-        <Panel className="view-chart" title="Hoạt động xem 7 ngày" action={<Segmented />}>
+        <Panel
+          className="view-chart"
+          title={activeChartPeriod.title}
+          action={<Segmented value={chartPeriod} onChange={(nextPeriod) => { setChartPeriod(nextPeriod); setHoveredChart(null); }} />}
+        >
           <div className="chart-wrap">
-            <svg viewBox="0 0 720 230" role="img" aria-label="Biểu đồ hoạt động xem 7 ngày">
+            {chartPeriod !== 'day' && (
+              <div className={`chart-summary ${chartLoading ? 'is-loading' : ''}`}>
+                <span>{chartSummaryLabel}</span>
+                <strong>{formatNumber(chartTotal)} lượt xem</strong>
+              </div>
+            )}
+            <svg viewBox="0 0 720 230" role="img" aria-label={`Biểu đồ ${activeChartPeriod.title}`} onMouseLeave={() => setHoveredChart(null)}>
               <defs>
                 <linearGradient id="viewFill" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.42" />
                   <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
                 </linearGradient>
               </defs>
-              {[0, 1, 2, 3, 4].map((line) => <line className="chart-grid-line" key={line} x1="48" x2="680" y1={34 + line * 38} y2={34 + line * 38} />)}
-              {chart.map((_, index) => <line className="chart-grid-line" key={`v${index}`} x1={48 + index * (624 / Math.max(chart.length - 1, 1))} x2={48 + index * (624 / Math.max(chart.length - 1, 1))} y1="28" y2="184" />)}
+              {[0, 1, 2, 3, 4].map((line) => (
+                <line className="chart-grid-line" key={line} x1="48" x2="680" y1={34 + line * 38} y2={34 + line * 38} />
+              ))}
+              {chart.map((_, index) => {
+                const x = 48 + index * (624 / Math.max(chart.length - 1, 1));
+                return <line className="chart-grid-line" key={`v${index}`} x1={x} x2={x} y1="28" y2="184" />;
+              })}
               <path className="chart-area" d={`${chartPath} L 672 184 L 48 184 Z`} />
               <path className="chart-line" d={chartPath} />
-              {chart.map((item, index) => {
-                const x = 48 + index * (624 / Math.max(chart.length - 1, 1));
-                const y = 180 - (Number(item.views || 0) / maxViews) * 140;
-                return <circle className="chart-dot" key={`${item.label}-${index}`} cx={x} cy={y} r="5" />;
-              })}
+              {chartPoints.map((point) => (
+                <g key={`${point.item.label}-${point.index}`}>
+                  <circle className="chart-dot" cx={point.x} cy={point.y} r="5" />
+                  <circle
+                    className="chart-hit"
+                    cx={point.x}
+                    cy={point.y}
+                    r="15"
+                    tabIndex="0"
+                    onMouseEnter={() => setHoveredChart(point)}
+                    onFocus={() => setHoveredChart(point)}
+                  />
+                </g>
+              ))}
             </svg>
+            {hoveredChart && (
+              <div
+                className="chart-tooltip"
+                style={{
+                  left: `${(hoveredChart.x / 720) * 100}%`,
+                  top: `${(hoveredChart.y / 230) * 100}%`
+                }}
+              >
+                <span>{hoveredChart.item.detail || hoveredChart.item.label}</span>
+                <strong>{formatNumber(hoveredChart.item.views)} lượt xem</strong>
+              </div>
+            )}
             <div className="chart-y-axis">
-              <span>{formatNumber(maxViews)}</span><span>{formatNumber(Math.round(maxViews * 0.75))}</span><span>{formatNumber(Math.round(maxViews * 0.5))}</span><span>{formatNumber(Math.round(maxViews * 0.25))}</span><span>0</span>
+              <span>{formatNumber(maxViews)}</span>
+              <span>{formatNumber(Math.round(maxViews * 0.75))}</span>
+              <span>{formatNumber(Math.round(maxViews * 0.5))}</span>
+              <span>{formatNumber(Math.round(maxViews * 0.25))}</span>
+              <span>0</span>
             </div>
-            <div className="chart-x-axis">{chart.map((item, index) => <span key={`${item.label}-${index}`}>{item.label}</span>)}</div>
+            <div className="chart-x-axis" style={{ gridTemplateColumns: `repeat(${chart.length}, minmax(0, 1fr))` }}>
+              {chart.map((item, index) => <span key={`${item.label}-${index}`}>{item.label}</span>)}
+            </div>
           </div>
         </Panel>
 
@@ -196,14 +263,17 @@ function Dashboard() {
         <Panel title="Người dùng mới" link="/admin/users">
           <div className="mini-table user-table">
             <div className="mini-table-head"><span>Người dùng</span><span>Vai trò</span><span>Ngày đăng ký</span><span>Trạng thái</span></div>
-            {dashboard.recentUsers.map((user) => (
-              <div className="mini-table-row" key={user.id}>
-                <span className="user-cell"><i>{initials(user.ten_dang_nhap)}</i>{user.ten_dang_nhap}</span>
-                <span>{roleLabel(user.vai_tro)}</span>
-                <span>{formatDate(user.ngay_tao)}</span>
-                <span className={user.trang_thai === 'active' ? 'dash-pill' : user.trang_thai === 'banned' ? 'dash-pill danger' : 'dash-pill pending'}>{accountStatusLabel(user.trang_thai)}</span>
-              </div>
-            ))}
+            {dashboard.recentUsers.map((user) => {
+              const displayName = user.ho_ten || user.ten_dang_nhap || user.email || 'Người dùng';
+              return (
+                <div className="mini-table-row" key={user.id}>
+                  <span className="user-cell"><i>{initials(displayName)}</i>{displayName}</span>
+                  <span>{roleLabel(user.vai_tro)}</span>
+                  <span>{formatDate(user.ngay_tao)}</span>
+                  <span className={user.trang_thai === 'active' ? 'dash-pill' : user.trang_thai === 'banned' ? 'dash-pill danger' : 'dash-pill pending'}>{accountStatusLabel(user.trang_thai)}</span>
+                </div>
+              );
+            })}
             {dashboard.recentUsers.length === 0 && <EmptyState text="Chưa có người dùng." />}
           </div>
         </Panel>
@@ -265,10 +335,21 @@ function Panel({ title, action, link, className = '', children }) {
   );
 }
 
-function Segmented() {
+function Segmented({ value, onChange }) {
   return (
     <div className="dashboard-segmented">
-      <button type="button" className="active">7 ngày</button>
+      {chartPeriods.map((period) => (
+        <button
+          key={period.value}
+          type="button"
+          className={value === period.value ? 'active' : ''}
+          onClick={() => {
+            if (value !== period.value) onChange(period.value);
+          }}
+        >
+          {period.label}
+        </button>
+      ))}
     </div>
   );
 }

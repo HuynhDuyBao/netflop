@@ -2,7 +2,9 @@ const crypto = require('crypto');
 const {
   ChangePasswordCommand,
   CognitoIdentityProviderClient,
+  ConfirmForgotPasswordCommand,
   ConfirmSignUpCommand,
+  ForgotPasswordCommand,
   InitiateAuthCommand,
   ResendConfirmationCodeCommand,
   RespondToAuthChallengeCommand,
@@ -52,9 +54,20 @@ function signUpUsername(email) {
   return `${base}_${crypto.randomBytes(4).toString('hex')}`;
 }
 
+function normalizeUsername(username, email) {
+  const normalized = String(username || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .slice(0, 40);
+
+  return normalized || signUpUsername(email);
+}
+
 async function syncLocalAccountForSignup({ username, email, password, fullName }) {
-  const existingAccount = await accountService.findByEmail(email);
-  if (existingAccount) return existingAccount;
+  const existingAccount = await accountService.findByUsernameOrEmail(username) || await accountService.findByEmail(email);
+  if (existingAccount) {
+    throw new HttpError(409, 'Ten dang nhap hoac email da duoc su dung.');
+  }
 
   return accountService.createAccount({
     username,
@@ -123,11 +136,17 @@ async function finishAuthentication(result) {
   return syncAccount(await verifyIdToken(idToken));
 }
 
-async function register({ email, password, fullName, birthdate, phoneNumber }) {
+async function register({ username: requestedUsername, email, password, fullName, birthdate, phoneNumber }) {
   ensureConfigured();
-  const username = signUpUsername(email);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const username = normalizeUsername(requestedUsername, normalizedEmail);
+  const exists = await accountService.usernameOrEmailExists(username, normalizedEmail);
+  if (exists) {
+    throw new HttpError(409, 'Ten dang nhap hoac email da duoc su dung.');
+  }
+
   const userAttributes = [
-    { Name: 'email', Value: email },
+    { Name: 'email', Value: normalizedEmail },
     ...(fullName ? [{ Name: 'name', Value: fullName }] : []),
     ...(birthdate ? [{ Name: 'birthdate', Value: birthdate }] : []),
     ...(phoneNumber ? [{ Name: 'phone_number', Value: phoneNumber }] : [])
@@ -141,14 +160,51 @@ async function register({ email, password, fullName, birthdate, phoneNumber }) {
   const hash = secretHash(username);
   if (hash) input.SecretHash = hash;
   const result = await client.send(new SignUpCommand(input));
-  await syncLocalAccountForSignup({ username, email, password, fullName });
+  await syncLocalAccountForSignup({ username, email: normalizedEmail, password, fullName });
   return {
     confirmed: result.UserConfirmed,
     username,
-    email,
+    email: normalizedEmail,
     destination: result.CodeDeliveryDetails?.Destination,
     deliveryMedium: result.CodeDeliveryDetails?.DeliveryMedium
   };
+}
+
+async function forgotPassword(identifier) {
+  ensureConfigured();
+  const username = String(identifier || '').trim();
+  const input = {
+    ClientId: config.cognitoClientId,
+    Username: username
+  };
+  const hash = secretHash(username);
+  if (hash) input.SecretHash = hash;
+  const result = await client.send(new ForgotPasswordCommand(input));
+  return {
+    destination: result.CodeDeliveryDetails?.Destination,
+    deliveryMedium: result.CodeDeliveryDetails?.DeliveryMedium
+  };
+}
+
+async function confirmForgotPassword({ identifier, code, newPassword }) {
+  ensureConfigured();
+  const username = String(identifier || '').trim();
+  const input = {
+    ClientId: config.cognitoClientId,
+    Username: username,
+    ConfirmationCode: String(code || '').replace(/\s/g, ''),
+    Password: newPassword
+  };
+  const hash = secretHash(username);
+  if (hash) input.SecretHash = hash;
+  await client.send(new ConfirmForgotPasswordCommand(input));
+
+  const account = await accountService.findByUsernameOrEmail(username);
+  if (account) {
+    await accountService.setPassword(account.id, newPassword);
+  }
+
+  return { confirmed: true };
 }
 
 async function confirmSignUp({ username, code }) {
@@ -380,8 +436,10 @@ function translateError(error) {
 
 module.exports = {
   changePassword,
+  confirmForgotPassword,
   confirmSignUp,
   exchangeCode,
+  forgotPassword,
   hostedUiUrl,
   login,
   logoutUrl,

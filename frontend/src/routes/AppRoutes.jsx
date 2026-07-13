@@ -8,6 +8,7 @@ import WatchMovie from '../pages/WatchMovie.jsx';
 import Search from '../pages/Search.jsx';
 import Genre from '../pages/Genre.jsx';
 import Country from '../pages/Country.jsx';
+import Contact from '../pages/Contact.jsx';
 import AuthPage from '../pages/AuthPage.jsx';
 import AuthCallback from '../pages/AuthCallback.jsx';
 import AccountCenter from '../pages/AccountCenter.jsx';
@@ -22,9 +23,10 @@ import EpisodeCreate from '../admin/pages/EpisodeCreate.jsx';
 import GenreList from '../admin/pages/GenreList.jsx';
 import PersonList from '../admin/pages/PersonList.jsx';
 import UserList from '../admin/pages/UserList.jsx';
-import CommentList from '../admin/pages/CommentList.jsx';
-import RatingList from '../admin/pages/RatingList.jsx';
+import FeedbackList from '../admin/pages/FeedbackList.jsx';
 import BannerList from '../admin/pages/BannerList.jsx';
+import AdminContactList from '../admin/pages/ContactList.jsx';
+import NotificationList from '../admin/pages/NotificationList.jsx';
 import Setting from '../admin/pages/Setting.jsx';
 import AdminRoute from './AdminRoute.jsx';
 import PrivateRoute from './PrivateRoute.jsx';
@@ -40,6 +42,8 @@ function AppRoutes() {
         <Route path="search" element={<Search />} />
         <Route path="genre/:slug" element={<Genre />} />
         <Route path="country/:slug" element={<Country />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="donate" element={<Contact />} />
         <Route path="login" element={<AuthPage initialMode="login" />} />
         <Route path="register" element={<AuthPage initialMode="register" />} />
         <Route path="auth/callback" element={<AuthCallback />} />
@@ -59,8 +63,11 @@ function AppRoutes() {
         <Route path="genres" element={<GenreList />} />
         <Route path="people" element={<PersonList />} />
         <Route path="users" element={<UserList />} />
-        <Route path="comments" element={<CommentList />} />
-        <Route path="ratings" element={<RatingList />} />
+        <Route path="feedback" element={<FeedbackList />} />
+        <Route path="comments" element={<Navigate to="/admin/feedback" replace />} />
+        <Route path="contacts" element={<AdminContactList />} />
+        <Route path="notifications" element={<NotificationList />} />
+        <Route path="ratings" element={<Navigate to="/admin/feedback" replace />} />
         <Route path="banners" element={<BannerList />} />
         <Route path="settings" element={<Setting />} />
       </Route>

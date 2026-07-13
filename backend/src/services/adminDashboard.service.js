@@ -5,7 +5,119 @@ async function countFrom(sql, params = {}) {
   return Number(rows[0]?.total || 0);
 }
 
-async function listDashboard() {
+function normalizePeriod(period) {
+  return ['day', 'week', 'month', 'year'].includes(period) ? period : 'week';
+}
+
+function chartQueryForPeriod(period) {
+  if (period === 'day') {
+    return `
+      SELECT DATE_FORMAT(ThoiGian, '%H') AS bucket, COUNT(*) AS views
+      FROM lichsu
+      WHERE DATE(ThoiGian) = CURDATE()
+      GROUP BY HOUR(ThoiGian)
+      ORDER BY HOUR(ThoiGian)
+    `;
+  }
+
+  if (period === 'month') {
+    return `
+      SELECT DATE_FORMAT(ThoiGian, '%Y-%m-%d') AS bucket, COUNT(*) AS views
+      FROM lichsu
+      WHERE ThoiGian >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        AND ThoiGian < DATE_ADD(LAST_DAY(CURDATE()), INTERVAL 1 DAY)
+      GROUP BY DATE(ThoiGian)
+      ORDER BY DATE(ThoiGian)
+    `;
+  }
+
+  if (period === 'year') {
+    return `
+      SELECT DATE_FORMAT(ThoiGian, '%Y-%m') AS bucket, COUNT(*) AS views
+      FROM lichsu
+      WHERE YEAR(ThoiGian) = YEAR(CURDATE())
+      GROUP BY YEAR(ThoiGian), MONTH(ThoiGian)
+      ORDER BY YEAR(ThoiGian), MONTH(ThoiGian)
+    `;
+  }
+
+  return `
+    SELECT DATE_FORMAT(ThoiGian, '%Y-%m-%d') AS bucket, COUNT(*) AS views
+    FROM lichsu
+    WHERE ThoiGian >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    GROUP BY DATE(ThoiGian)
+    ORDER BY DATE(ThoiGian)
+  `;
+}
+
+function dateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+}
+
+function buildChart(period, rows) {
+  const chartMap = new Map(rows.map((row) => [row.bucket, Number(row.views || 0)]));
+  const now = new Date();
+
+  if (period === 'day') {
+    return Array.from({ length: 24 }, (_, hour) => {
+      const key = String(hour).padStart(2, '0');
+      return {
+        bucket: key,
+        label: `${key}:00`,
+        detail: now.toLocaleDateString('vi-VN'),
+        views: chartMap.get(key) || 0
+      };
+    });
+  }
+
+  if (period === 'month') {
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(year, month, index + 1);
+      const key = dateKey(date);
+      return {
+        bucket: key,
+        label: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        detail: date.toLocaleDateString('vi-VN'),
+        views: chartMap.get(key) || 0
+      };
+    });
+  }
+
+  if (period === 'year') {
+    const year = now.getFullYear();
+    return Array.from({ length: 12 }, (_, month) => {
+      const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+      return {
+        bucket: key,
+        label: `T${month + 1}`,
+        detail: `Tháng ${month + 1}/${year}`,
+        views: chartMap.get(key) || 0
+      };
+    });
+  }
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+    const key = dateKey(date);
+    return {
+      bucket: key,
+      label: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+      detail: date.toLocaleDateString('vi-VN'),
+      views: chartMap.get(key) || 0
+    };
+  });
+}
+
+async function listDashboard({ period = 'week' } = {}) {
+  const chartPeriod = normalizePeriod(period);
   const viewStatsJoin = `
     LEFT JOIN (
       SELECT MaPhim, COUNT(*) AS total
@@ -98,30 +210,10 @@ async function listDashboard() {
       ORDER BY dg.ThoiGian DESC
       LIMIT 5
     `),
-    pool.execute(`
-      SELECT DATE_FORMAT(ThoiGian, '%Y-%m-%d') AS date, COUNT(*) AS views
-      FROM lichsu
-      WHERE ThoiGian >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-      GROUP BY DATE(ThoiGian)
-      ORDER BY DATE(ThoiGian)
-    `)
+    pool.execute(chartQueryForPeriod(chartPeriod))
   ]);
 
-  const chartMap = new Map(chartRows[0].map((row) => [row.date, Number(row.views || 0)]));
-  const chart = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    const key = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0')
-    ].join('-');
-    return {
-      date: key,
-      label: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-      views: chartMap.get(key) || 0
-    };
-  });
+  const chart = buildChart(chartPeriod, chartRows[0]);
 
   const activity = [
     ...recentMovies[0].slice(0, 3).map((movie) => ({
@@ -162,6 +254,7 @@ async function listDashboard() {
       processing: processingTotal,
       revenue: 0
     },
+    chartPeriod,
     chart,
     topMovies: topMovies[0],
     recentMovies: recentMovies[0],

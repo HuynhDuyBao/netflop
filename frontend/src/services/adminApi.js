@@ -1,8 +1,8 @@
 import axiosClient from './axiosClient.js';
 
 export const adminApi = {
-  dashboard: async () => {
-    const response = await axiosClient.get('/admin/dashboard');
+  dashboard: async (params) => {
+    const response = await axiosClient.get('/admin/dashboard', { params });
     return response.data.data;
   },
   users: (params) => axiosClient.get('/admin/users', { params }),
@@ -19,5 +19,7 @@ export const adminApi = {
   updateGenre: (id, name) => axiosClient.patch(`/admin/genres/${id}`, { name }),
   deleteGenre: (id) => axiosClient.delete(`/admin/genres/${id}`),
   comments: (params) => axiosClient.get('/comments', { params }),
-  ratings: (params) => axiosClient.get('/ratings', { params })
+  ratings: (params) => axiosClient.get('/ratings', { params }),
+  contacts: (params) => axiosClient.get('/admin/contacts', { params }),
+  updateContactStatus: (id, status) => axiosClient.patch(`/admin/contacts/${id}/status`, { status })
 };

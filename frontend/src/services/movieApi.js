@@ -3,6 +3,7 @@ import axiosClient from './axiosClient.js';
 export const movieApi = {
   list: (params) => axiosClient.get('/movies', { params }),
   detail: (id) => axiosClient.get(`/movies/${id}`),
+  recommendations: (id, params) => axiosClient.get(`/movies/${id}/recommendations`, { params }),
   episodes: (id) => axiosClient.get(`/movies/${id}/episodes`),
   comments: (id, params) => axiosClient.get(`/movies/${id}/comments`, { params }),
   createComment: (id, data) => axiosClient.post(`/movies/${id}/comments`, data),
